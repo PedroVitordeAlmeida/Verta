@@ -1,0 +1,66 @@
+# ------------------------------------------------------------------
+# EXEMPLO de referencia para quem for montar o docker-compose final.
+# Este arquivo NAO e usado automaticamente - e so um modelo mostrando
+# como backend + frontend + banco se conectam. Ele assume que as pastas
+# verta-backend/ e verta-frontend/ estao uma do lado da outra (irmas).
+# ------------------------------------------------------------------
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: verta
+      POSTGRES_USER: verta_user
+      POSTGRES_PASSWORD: troque_esta_senha
+    volumes:
+      - verta_pg_data:/var/lib/postgresql/data
+      # Se o banco ainda nao existir no ambiente de destino, os .sql
+      # de criacao das tabelas podem ser colocados aqui:
+      # - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./verta-backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: verta
+      DB_USER: verta_user
+      DB_PASSWORD: troque_esta_senha
+      JWT_SECRET: troque_este_segredo_por_um_valor_aleatorio_grande
+      JWT_ISSUER: verta-backend
+      JWT_AUDIENCE: verta-app
+      JWT_REALM: verta-app
+      PORT: 8080
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    volumes:
+      - verta_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./verta-frontend
+      dockerfile: Dockerfile
+      args:
+        # Endereco pelo qual o NAVEGADOR da pessoa vai acessar o backend.
+        # Isso e' gravado dentro dos arquivos .js no momento do build do
+        # front (ver README do verta-frontend) - por isso normalmente e'
+        # a URL PUBLICA da API, nao o nome do servico "backend".
+        VITE_API_URL: http://localhost:8080
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  verta_pg_data:
+  verta_uploads:

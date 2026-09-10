@@ -1,0 +1,76 @@
+package com.verta.backend.repositories
+
+import com.verta.backend.config.DatabaseFactory.dbQuery
+import com.verta.backend.dto.UsuarioCreateDto
+import com.verta.backend.dto.UsuarioDto
+import com.verta.backend.dto.UsuarioUpdateDto
+import com.verta.backend.models.Usuarios
+import com.verta.backend.security.PasswordUtil
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.javatime.CurrentDateTime
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
+
+object UsuarioRepository {
+
+    private fun ResultRow.toDto() = UsuarioDto(
+        id = this[Usuarios.id],
+        empresaId = this[Usuarios.empresaId],
+        nome = this[Usuarios.nome],
+        email = this[Usuarios.email],
+        perfil = this[Usuarios.perfil],
+        ativo = this[Usuarios.ativo],
+        dataCadastro = this[Usuarios.dataCadastro]?.toString()
+    )
+
+    suspend fun findAll(empresaId: Int? = null): List<UsuarioDto> = dbQuery {
+        val query = if (empresaId != null) {
+            Usuarios.selectAll().where { Usuarios.empresaId eq empresaId }
+        } else {
+            Usuarios.selectAll()
+        }
+        query.map { it.toDto() }
+    }
+
+    suspend fun findById(id: Int): UsuarioDto? = dbQuery {
+        Usuarios.selectAll().where { Usuarios.id eq id }.map { it.toDto() }.singleOrNull()
+    }
+
+    /** Usado internamente pelo login - inclui o hash da senha. */
+    suspend fun findRowByEmail(email: String): ResultRow? = dbQuery {
+        Usuarios.selectAll().where { Usuarios.email eq email }.singleOrNull()
+    }
+
+    suspend fun create(dto: UsuarioCreateDto): UsuarioDto = dbQuery {
+        val insertedId = Usuarios.insert {
+            it[empresaId] = dto.empresaId
+            it[nome] = dto.nome
+            it[email] = dto.email
+            it[senha] = PasswordUtil.hash(dto.senha)
+            it[perfil] = dto.perfil
+            it[ativo] = dto.ativo
+            it[dataCadastro] = CurrentDateTime
+        } get Usuarios.id
+
+        Usuarios.selectAll().where { Usuarios.id eq insertedId }.map { it.toDto() }.single()
+    }
+
+    suspend fun update(id: Int, dto: UsuarioUpdateDto): Boolean = dbQuery {
+        Usuarios.update({ Usuarios.id eq id }) {
+            it[nome] = dto.nome
+            it[email] = dto.email
+            it[perfil] = dto.perfil
+            it[ativo] = dto.ativo
+            if (!dto.senha.isNullOrBlank()) {
+                it[senha] = PasswordUtil.hash(dto.senha)
+            }
+        } > 0
+    }
+
+    suspend fun delete(id: Int): Boolean = dbQuery {
+        Usuarios.deleteWhere { Usuarios.id eq id } > 0
+    }
+}
