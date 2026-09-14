@@ -38,6 +38,14 @@ object DatabaseFactory {
             this.maximumPoolSize = 10
             this.isAutoCommit = false
             this.transactionIsolation = "TRANSACTION_READ_COMMITTED"
+            // Por padrao o HikariCP tenta abrir uma conexao JA na inicializacao e,
+            // se falhar, derruba o processo inteiro. Com -1 aqui, o backend sobe
+            // normalmente mesmo que o banco ainda nao esteja disponivel (util em
+            // docker-compose, onde o Postgres pode demorar alguns segundos a mais
+            // pra ficar pronto) - ele so tenta conectar de verdade quando alguma
+            // rota precisar acessar o banco, e ai sim retorna erro so daquela
+            // requisicao, sem matar o servidor inteiro.
+            this.initializationFailTimeout = -1
             validate()
         }
 
