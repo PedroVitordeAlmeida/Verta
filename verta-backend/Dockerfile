@@ -23,8 +23,8 @@ RUN mkdir -p /app/uploads && chown -R verta:verta /app
 
 USER verta
 
-EXPOSE 8080
+EXPOSE 3005
 
-ENV PORT=8080
+ENV PORT=3005
 
 ENTRYPOINT ["java", "-jar", "/app/verta-backend.jar"]
