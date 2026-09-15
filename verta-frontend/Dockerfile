@@ -11,7 +11,7 @@ COPY . .
 # dentro dos arquivos .js finais, nao le-lo em tempo de execucao). Por isso
 # e um ARG de build, e quem for montar o docker-compose passa via
 # "build: args:" apontando pro endereco publico/interno do backend.
-# ARG VITE_API_URL=http://localhost:8080
+ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
