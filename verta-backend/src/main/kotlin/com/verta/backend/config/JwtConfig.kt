@@ -23,14 +23,22 @@ class JwtConfig(config: ApplicationConfig) {
         .withAudience(audience)
         .build()
 
-    /** Gera um token valido por 8 horas contendo id, empresaId e perfil do usuario. */
-    fun generateToken(usuarioId: Int, empresaId: Int, perfil: String): String =
+    /**
+     * Gera um token valido por 8 horas contendo id, empresaId e perfil do usuario.
+     *
+     * [sessionToken] identifica essa sessao especifica: e salvo em usuarios.token_sessao
+     * no momento do login e conferido a cada requisicao (ver Security.kt). Um novo login
+     * gera um [sessionToken] novo e sobrescreve o anterior, derrubando qualquer sessao
+     * previamente ativa desse usuario.
+     */
+    fun generateToken(usuarioId: Int, empresaId: Int, perfil: String, sessionToken: String): String =
         JWT.create()
             .withIssuer(issuer)
             .withAudience(audience)
             .withClaim("usuarioId", usuarioId)
             .withClaim("empresaId", empresaId)
             .withClaim("perfil", perfil)
+            .withClaim("sessionToken", sessionToken)
             .withExpiresAt(Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000))
             .sign(algorithm)
 }

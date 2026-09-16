@@ -13,6 +13,8 @@ object Usuarios : Table("usuarios") {
     val perfil = varchar("perfil", 50) // ex: ADMINISTRADOR, EDITOR, VISUALIZADOR
     val ativo = bool("ativo").default(true)
     val dataCadastro = datetime("data_cadastro").nullable()
+    /** Identificador da sessao (JWT) ativa no momento. Login novo sobrescreve e derruba a sessao anterior. */
+    val tokenSessao = varchar("token_sessao", 255).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

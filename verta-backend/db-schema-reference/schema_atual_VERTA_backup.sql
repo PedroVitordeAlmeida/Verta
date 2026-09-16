@@ -68,7 +68,8 @@ CREATE TABLE public.usuarios (
     senha character varying(255) NOT NULL,
     perfil character varying(50) NOT NULL,
     ativo boolean DEFAULT true,
-    data_cadastro timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    data_cadastro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    token_sessao character varying(255)
 );
 
 -- TABLE: versoes_contrato

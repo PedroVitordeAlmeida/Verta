@@ -44,6 +44,21 @@ object UsuarioRepository {
         Usuarios.selectAll().where { Usuarios.email eq email }.singleOrNull()
     }
 
+    /** Grava o identificador da sessao ativa - login novo derruba a sessao anterior. */
+    suspend fun updateTokenSessao(usuarioId: Int, tokenSessao: String?): Unit = dbQuery {
+        Usuarios.update({ Usuarios.id eq usuarioId }) {
+            it[Usuarios.tokenSessao] = tokenSessao
+        }
+        Unit
+    }
+
+    /** Usado pela validacao do JWT a cada requisicao (ver Security.kt). */
+    suspend fun findTokenSessao(usuarioId: Int): String? = dbQuery {
+        Usuarios.selectAll().where { Usuarios.id eq usuarioId }
+            .map { it[Usuarios.tokenSessao] }
+            .singleOrNull()
+    }
+
     suspend fun create(dto: UsuarioCreateDto): UsuarioDto = dbQuery {
         val insertedId = Usuarios.insert {
             it[empresaId] = dto.empresaId

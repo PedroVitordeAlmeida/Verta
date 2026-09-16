@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { login as loginRequest } from '../api/auth'
+import { login as loginRequest, logout as logoutRequest } from '../api/auth'
 
 interface UsuarioLogado {
   usuarioId: number
@@ -50,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    // Libera a sessao no backend (token_sessao). Dispara e esquece: mesmo se falhar
+    // (ex: token ja expirado), o usuario e deslogado localmente de qualquer forma.
+    logoutRequest().catch(() => {})
     localStorage.removeItem('verta_token')
     localStorage.removeItem('verta_usuario')
     setUsuario(null)

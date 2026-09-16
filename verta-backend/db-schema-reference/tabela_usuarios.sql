@@ -13,6 +13,7 @@ CREATE TABLE public.usuarios (
 	perfil varchar(50) NOT NULL,
 	ativo bool DEFAULT true NULL,
 	data_cadastro timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	token_sessao varchar(255) NULL,
 	CONSTRAINT usuarios_email_key UNIQUE (email),
 	CONSTRAINT usuarios_email_not_null NOT NULL email,
 	CONSTRAINT usuarios_empresa_id_not_null NOT NULL empresa_id,
