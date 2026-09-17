@@ -42,10 +42,12 @@ fun Route.authRoutes(jwtConfig: JwtConfig) {
             val sessionToken = UUID.randomUUID().toString()
             UsuarioRepository.updateTokenSessao(usuarioId, sessionToken)
 
+            val perfil = row[Usuarios.perfil].name
+
             val token = jwtConfig.generateToken(
                 usuarioId = usuarioId,
                 empresaId = row[Usuarios.empresaId],
-                perfil = row[Usuarios.perfil],
+                perfil = perfil,
                 sessionToken = sessionToken
             )
 
@@ -55,7 +57,7 @@ fun Route.authRoutes(jwtConfig: JwtConfig) {
                     usuarioId = usuarioId,
                     empresaId = row[Usuarios.empresaId],
                     nome = row[Usuarios.nome],
-                    perfil = row[Usuarios.perfil]
+                    perfil = perfil
                 )
             )
         }

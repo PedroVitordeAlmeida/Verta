@@ -10,7 +10,7 @@ object Usuarios : Table("usuarios") {
     val nome = varchar("nome", 150)
     val email = varchar("email", 150).uniqueIndex()
     val senha = varchar("senha", 255) // hash bcrypt, nunca texto puro
-    val perfil = varchar("perfil", 50) // ex: ADMINISTRADOR, EDITOR, VISUALIZADOR
+    val perfil = pgEnumeration<Perfil>("perfil", "tipo_perfil")
     val ativo = bool("ativo").default(true)
     val dataCadastro = datetime("data_cadastro").nullable()
     /** Identificador da sessao (JWT) ativa no momento. Login novo sobrescreve e derruba a sessao anterior. */

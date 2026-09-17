@@ -4,6 +4,7 @@ import com.verta.backend.config.DatabaseFactory.dbQuery
 import com.verta.backend.dto.UsuarioCreateDto
 import com.verta.backend.dto.UsuarioDto
 import com.verta.backend.dto.UsuarioUpdateDto
+import com.verta.backend.models.Perfil
 import com.verta.backend.models.Usuarios
 import com.verta.backend.security.PasswordUtil
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -21,7 +22,7 @@ object UsuarioRepository {
         empresaId = this[Usuarios.empresaId],
         nome = this[Usuarios.nome],
         email = this[Usuarios.email],
-        perfil = this[Usuarios.perfil],
+        perfil = this[Usuarios.perfil].name,
         ativo = this[Usuarios.ativo],
         dataCadastro = this[Usuarios.dataCadastro]?.toString()
     )
@@ -65,7 +66,7 @@ object UsuarioRepository {
             it[nome] = dto.nome
             it[email] = dto.email
             it[senha] = PasswordUtil.hash(dto.senha)
-            it[perfil] = dto.perfil
+            it[perfil] = Perfil.fromInput(dto.perfil)
             it[ativo] = dto.ativo
             it[dataCadastro] = CurrentDateTime
         } get Usuarios.id
@@ -77,7 +78,7 @@ object UsuarioRepository {
         Usuarios.update({ Usuarios.id eq id }) {
             it[nome] = dto.nome
             it[email] = dto.email
-            it[perfil] = dto.perfil
+            it[perfil] = Perfil.fromInput(dto.perfil)
             it[ativo] = dto.ativo
             if (!dto.senha.isNullOrBlank()) {
                 it[senha] = PasswordUtil.hash(dto.senha)

@@ -4,13 +4,18 @@
 
 -- DROP TABLE public.usuarios;
 
+CREATE TYPE public.tipo_perfil AS ENUM (
+	'ADMIN',
+	'COMUM'
+);
+
 CREATE TABLE public.usuarios (
 	id serial4 NOT NULL,
 	empresa_id int4 NOT NULL,
 	nome varchar(150) NOT NULL,
 	email varchar(150) NOT NULL,
 	senha varchar(255) NOT NULL,
-	perfil varchar(50) NOT NULL,
+	perfil public.tipo_perfil NOT NULL,
 	ativo bool DEFAULT true NULL,
 	data_cadastro timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	token_sessao varchar(255) NULL,

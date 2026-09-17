@@ -60,13 +60,18 @@ CREATE TABLE public.templates (
 );
 
 -- TABLE: usuarios
+CREATE TYPE public.tipo_perfil AS ENUM (
+    'ADMIN',
+    'COMUM'
+);
+
 CREATE TABLE public.usuarios (
     id integer NOT NULL,
     empresa_id integer NOT NULL,
     nome character varying(150) NOT NULL,
     email character varying(150) NOT NULL,
     senha character varying(255) NOT NULL,
-    perfil character varying(50) NOT NULL,
+    perfil public.tipo_perfil NOT NULL,
     ativo boolean DEFAULT true,
     data_cadastro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     token_sessao character varying(255)
