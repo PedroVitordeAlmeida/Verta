@@ -61,19 +61,33 @@ export function GerenciadorArquivos() {
     ? contratos.filter((c) => statusFiltro.includes(c.status))
     : contratos
 
+  function recarregarTemplates() {
+    if (!usuario) return
+    templatesApi.listar(usuario.empresaId).then(setTemplates)
+  }
+
   return (
     <div className="files-layout">
       <div className="card files-main">
         <div className="files-toolbar">
           <button className="btn btn-secondary" onClick={() => setMostrarUpload((v) => !v)}>
-            ↑ Upload
+            {pasta === 'templates' ? '+ Novo template' : '↑ Upload'}
           </button>
           <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
             + Novo
           </button>
         </div>
 
-        {mostrarUpload && (
+        {mostrarUpload && pasta === 'templates' && (
+          <NovoTemplateForm
+            onConcluido={() => {
+              setMostrarUpload(false)
+              recarregarTemplates()
+            }}
+          />
+        )}
+
+        {mostrarUpload && pasta !== 'templates' && (
           <UploadArquivoForm
             contratos={contratos}
             onConcluido={() => setMostrarUpload(false)}
@@ -161,6 +175,72 @@ function ListaTemplates({ templates }: { templates: Template[] }) {
         </div>
       ))}
     </div>
+  )
+}
+
+function NovoTemplateForm({ onConcluido }: { onConcluido: () => void }) {
+  const { usuario } = useAuth()
+  const [nome, setNome] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [conteudo, setConteudo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!usuario) return
+    setEnviando(true)
+    setErro(null)
+    try {
+      await templatesApi.criar({
+        empresaId: usuario.empresaId,
+        nome,
+        descricao: descricao || null,
+        conteudo,
+        ativo: true
+      })
+      onConcluido()
+    } catch {
+      setErro('Não foi possível cadastrar o template.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <form className="card" style={{ padding: 18, marginBottom: 18 }} onSubmit={handleSubmit}>
+      {erro && <div className="status-message error">{erro}</div>}
+      <div className="field">
+        <label>Nome do template</label>
+        <input
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          placeholder="Contrato de Prestação de Serviços"
+          required
+        />
+      </div>
+      <div className="field">
+        <label>Descrição</label>
+        <input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="field">
+        <label>Conteúdo do template</label>
+        <textarea
+          value={conteudo}
+          onChange={(e) => setConteudo(e.target.value)}
+          placeholder="Use {{variavel}} para os campos que serão preenchidos na geração do contrato."
+          rows={8}
+          required
+        />
+      </div>
+      <button type="submit" className="btn btn-primary" disabled={enviando}>
+        {enviando ? 'Cadastrando...' : 'Cadastrar template'}
+      </button>
+    </form>
   )
 }
 
