@@ -35,6 +35,7 @@ export function GerenciadorArquivos() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarUpload, setMostrarUpload] = useState(false)
+  const [templateEditando, setTemplateEditando] = useState<Template | null>(null)
 
   useEffect(() => {
     if (!usuario) return
@@ -70,7 +71,13 @@ export function GerenciadorArquivos() {
     <div className="files-layout">
       <div className="card files-main">
         <div className="files-toolbar">
-          <button className="btn btn-secondary" onClick={() => setMostrarUpload((v) => !v)}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setTemplateEditando(null)
+              setMostrarUpload((v) => !v)
+            }}
+          >
             {pasta === 'templates' ? '+ Novo template' : '↑ Upload'}
           </button>
           <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
@@ -78,7 +85,17 @@ export function GerenciadorArquivos() {
           </button>
         </div>
 
-        {mostrarUpload && pasta === 'templates' && (
+        {templateEditando && (
+          <NovoTemplateForm
+            templateExistente={templateEditando}
+            onConcluido={() => {
+              setTemplateEditando(null)
+              recarregarTemplates()
+            }}
+          />
+        )}
+
+        {mostrarUpload && !templateEditando && pasta === 'templates' && (
           <NovoTemplateForm
             onConcluido={() => {
               setMostrarUpload(false)
@@ -99,9 +116,9 @@ export function GerenciadorArquivos() {
         {carregando ? (
           <div className="loading-text">Carregando...</div>
         ) : pasta === 'templates' ? (
-          <ListaTemplates templates={templates} />
+          <ListaTemplates templates={templates} onEditar={setTemplateEditando} />
         ) : (
-          <ListaContratos contratos={contratosFiltrados} />
+          <ListaContratos contratos={contratosFiltrados} onAbrir={(c) => navigate(`/contratos/${c.id}`)} />
         )}
       </div>
 
@@ -120,12 +137,18 @@ export function GerenciadorArquivos() {
   )
 }
 
-function ListaContratos({ contratos }: { contratos: Contrato[] }) {
+function ListaContratos({
+  contratos,
+  onAbrir
+}: {
+  contratos: Contrato[]
+  onAbrir: (contrato: Contrato) => void
+}) {
   if (contratos.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state-title">Nada por aqui ainda</div>
-        Os contratos que você criar vão aparecer nesta pasta.
+        Os contratos que você criar ou que compartilharem com você vão aparecer nesta pasta.
       </div>
     )
   }
@@ -133,7 +156,7 @@ function ListaContratos({ contratos }: { contratos: Contrato[] }) {
   return (
     <div>
       {contratos.map((contrato) => (
-        <div className="file-row" key={contrato.id}>
+        <div className="file-row" key={contrato.id} onClick={() => onAbrir(contrato)} style={{ cursor: 'pointer' }}>
           <div className="file-row-left">
             <div className="file-icon">📄</div>
             <div>
@@ -148,7 +171,13 @@ function ListaContratos({ contratos }: { contratos: Contrato[] }) {
   )
 }
 
-function ListaTemplates({ templates }: { templates: Template[] }) {
+function ListaTemplates({
+  templates,
+  onEditar
+}: {
+  templates: Template[]
+  onEditar: (template: Template) => void
+}) {
   if (templates.length === 0) {
     return (
       <div className="empty-state">
@@ -169,20 +198,32 @@ function ListaTemplates({ templates }: { templates: Template[] }) {
               <div className="file-sub">{template.descricao ?? 'Sem descrição'}</div>
             </div>
           </div>
-          <span className={`badge ${template.ativo ? 'badge-finalizado' : 'badge-arquivado'}`}>
-            {template.ativo ? 'Ativo' : 'Inativo'}
-          </span>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span className={`badge ${template.ativo ? 'badge-finalizado' : 'badge-arquivado'}`}>
+              {template.ativo ? 'Ativo' : 'Inativo'}
+            </span>
+            <button className="btn btn-secondary" onClick={() => onEditar(template)}>
+              ✎ Editar
+            </button>
+          </div>
         </div>
       ))}
     </div>
   )
 }
 
-function NovoTemplateForm({ onConcluido }: { onConcluido: () => void }) {
+function NovoTemplateForm({
+  templateExistente,
+  onConcluido
+}: {
+  templateExistente?: Template
+  onConcluido: () => void
+}) {
   const { usuario } = useAuth()
-  const [nome, setNome] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [conteudo, setConteudo] = useState('')
+  const [nome, setNome] = useState(templateExistente?.nome ?? '')
+  const [descricao, setDescricao] = useState(templateExistente?.descricao ?? '')
+  const [conteudo, setConteudo] = useState(templateExistente?.conteudo ?? '')
+  const [ativo, setAtivo] = useState(templateExistente?.ativo ?? true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -192,16 +233,26 @@ function NovoTemplateForm({ onConcluido }: { onConcluido: () => void }) {
     setEnviando(true)
     setErro(null)
     try {
-      await templatesApi.criar({
-        empresaId: usuario.empresaId,
-        nome,
-        descricao: descricao || null,
-        conteudo,
-        ativo: true
-      })
+      if (templateExistente?.id) {
+        await templatesApi.atualizar(templateExistente.id, {
+          empresaId: usuario.empresaId,
+          nome,
+          descricao: descricao || null,
+          conteudo,
+          ativo
+        })
+      } else {
+        await templatesApi.criar({
+          empresaId: usuario.empresaId,
+          nome,
+          descricao: descricao || null,
+          conteudo,
+          ativo: true
+        })
+      }
       onConcluido()
     } catch {
-      setErro('Não foi possível cadastrar o template.')
+      setErro('Não foi possível salvar o template.')
     } finally {
       setEnviando(false)
     }
@@ -222,7 +273,7 @@ function NovoTemplateForm({ onConcluido }: { onConcluido: () => void }) {
       <div className="field">
         <label>Descrição</label>
         <input
-          value={descricao}
+          value={descricao ?? ''}
           onChange={(e) => setDescricao(e.target.value)}
           placeholder="Opcional"
         />
@@ -237,9 +288,24 @@ function NovoTemplateForm({ onConcluido }: { onConcluido: () => void }) {
           required
         />
       </div>
-      <button type="submit" className="btn btn-primary" disabled={enviando}>
-        {enviando ? 'Cadastrando...' : 'Cadastrar template'}
-      </button>
+      {templateExistente && (
+        <div className="field">
+          <label>
+            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Ativo (aparece na
+            geração de contrato)
+          </label>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10 }}>
+        {templateExistente && (
+          <button type="button" className="btn btn-secondary" onClick={onConcluido}>
+            Cancelar
+          </button>
+        )}
+        <button type="submit" className="btn btn-primary" disabled={enviando}>
+          {enviando ? 'Salvando...' : templateExistente ? 'Salvar alterações' : 'Cadastrar template'}
+        </button>
+      </div>
     </form>
   )
 }

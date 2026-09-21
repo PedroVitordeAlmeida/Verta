@@ -27,6 +27,10 @@ object ContratoUsuarioRepository {
         empresaId = this[ContratoUsuarios.empresaId]
     )
 
+    suspend fun findById(id: Int): ContratoUsuarioDto? = dbQuery {
+        ContratoUsuarios.selectAll().where { ContratoUsuarios.id eq id }.map { it.toDto() }.singleOrNull()
+    }
+
     suspend fun findByContrato(contratoId: Int): List<ContratoUsuarioDto> = dbQuery {
         ContratoUsuarios.selectAll().where { ContratoUsuarios.contratoId eq contratoId }.map { it.toDto() }
     }

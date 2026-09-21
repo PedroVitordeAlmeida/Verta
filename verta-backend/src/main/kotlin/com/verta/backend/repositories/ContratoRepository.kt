@@ -4,19 +4,34 @@ import com.verta.backend.config.DatabaseFactory.dbQuery
 import com.verta.backend.dto.ContratoCreateDto
 import com.verta.backend.dto.ContratoDto
 import com.verta.backend.dto.GerarContratoDto
+import com.verta.backend.models.ContratoUsuarios
 import com.verta.backend.models.Contratos
 import com.verta.backend.models.StatusContrato
 import com.verta.backend.models.Templates
 import com.verta.backend.models.VersoesContrato
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.javatime.CurrentDateTime
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
+
+/**
+ * Permissoes efetivas de um usuario sobre um contrato: dono/ADMIN tem tudo liberado,
+ * caso contrario reflete o vinculo em contrato_usuarios (ou tudo negado se nao houver vinculo).
+ */
+data class ContratoPermissoes(
+    val visualizar: Boolean,
+    val editar: Boolean,
+    val assinar: Boolean,
+    val excluir: Boolean
+)
 
 object ContratoRepository {
 
@@ -32,21 +47,74 @@ object ContratoRepository {
         dataAtualizacao = this[Contratos.dataAtualizacao]?.toString()
     )
 
-    suspend fun findAll(empresaId: Int? = null, status: String? = null): List<ContratoDto> = dbQuery {
-        val conditions = mutableListOf<org.jetbrains.exposed.sql.Op<Boolean>>()
-        if (empresaId != null) conditions.add(Contratos.empresaId eq empresaId)
+    /**
+     * Lista os contratos da empresa. Usuarios comuns so enxergam os que criaram ou
+     * os que foram compartilhados com eles (contrato_usuarios.pode_visualizar); ADMIN ve tudo.
+     */
+    suspend fun findAll(empresaId: Int, status: String? = null, usuarioId: Int, isAdmin: Boolean): List<ContratoDto> = dbQuery {
+        val conditions = mutableListOf<Op<Boolean>>()
+        conditions.add(Contratos.empresaId eq empresaId)
         if (status != null) conditions.add(Contratos.status eq status)
 
-        val query = if (conditions.isEmpty()) {
-            Contratos.selectAll()
-        } else {
-            Contratos.selectAll().where { conditions.reduce { acc, op -> acc and op } }
+        if (!isAdmin) {
+            val idsCompartilhados = ContratoUsuarios
+                .selectAll()
+                .where { (ContratoUsuarios.usuarioId eq usuarioId) and (ContratoUsuarios.podeVisualizar eq true) }
+                .map { it[ContratoUsuarios.contratoId] }
+
+            conditions.add(
+                if (idsCompartilhados.isEmpty()) {
+                    Contratos.criadoPor eq usuarioId
+                } else {
+                    (Contratos.criadoPor eq usuarioId) or (Contratos.id inList idsCompartilhados)
+                }
+            )
         }
-        query.orderBy(Contratos.dataAtualizacao, SortOrder.DESC).map { it.toDto() }
+
+        Contratos.selectAll().where { conditions.reduce { acc, op -> acc and op } }
+            .orderBy(Contratos.dataAtualizacao, SortOrder.DESC)
+            .map { it.toDto() }
     }
 
-    suspend fun findById(id: Int): ContratoDto? = dbQuery {
-        Contratos.selectAll().where { Contratos.id eq id }.map { it.toDto() }.singleOrNull()
+    /** So retorna o contrato se ele pertencer a mesma empresa e o usuario puder visualiza-lo. */
+    suspend fun findById(id: Int, empresaId: Int, usuarioId: Int, isAdmin: Boolean): ContratoDto? = dbQuery {
+        val row = Contratos.selectAll().where { Contratos.id eq id }.singleOrNull() ?: return@dbQuery null
+        if (row[Contratos.empresaId] != empresaId) return@dbQuery null
+        if (isAdmin || row[Contratos.criadoPor] == usuarioId) return@dbQuery row.toDto()
+
+        val compartilhado = ContratoUsuarios.selectAll().where {
+            (ContratoUsuarios.contratoId eq id) and
+                (ContratoUsuarios.usuarioId eq usuarioId) and
+                (ContratoUsuarios.podeVisualizar eq true)
+        }.count() > 0
+        if (!compartilhado) return@dbQuery null
+        row.toDto()
+    }
+
+    /** empresaId e criadoPor do contrato, para checagens de dono sem carregar o DTO inteiro. */
+    suspend fun buscarDono(id: Int): Pair<Int, Int>? = dbQuery {
+        Contratos.selectAll().where { Contratos.id eq id }.singleOrNull()
+            ?.let { it[Contratos.empresaId] to it[Contratos.criadoPor] }
+    }
+
+    /** Permissoes efetivas do usuario sobre o contrato; null se o contrato nao existir na empresa informada. */
+    suspend fun permissoesDe(id: Int, empresaId: Int, usuarioId: Int, isAdmin: Boolean): ContratoPermissoes? = dbQuery {
+        val row = Contratos.selectAll().where { Contratos.id eq id }.singleOrNull() ?: return@dbQuery null
+        if (row[Contratos.empresaId] != empresaId) return@dbQuery null
+        if (isAdmin || row[Contratos.criadoPor] == usuarioId) {
+            return@dbQuery ContratoPermissoes(visualizar = true, editar = true, assinar = true, excluir = true)
+        }
+
+        val vinculo = ContratoUsuarios.selectAll().where {
+            (ContratoUsuarios.contratoId eq id) and (ContratoUsuarios.usuarioId eq usuarioId)
+        }.singleOrNull() ?: return@dbQuery ContratoPermissoes(false, false, false, false)
+
+        ContratoPermissoes(
+            visualizar = vinculo[ContratoUsuarios.podeVisualizar],
+            editar = vinculo[ContratoUsuarios.podeEditar],
+            assinar = vinculo[ContratoUsuarios.podeAssinar],
+            excluir = vinculo[ContratoUsuarios.podeExcluir]
+        )
     }
 
     suspend fun create(dto: ContratoCreateDto): ContratoDto = dbQuery {
