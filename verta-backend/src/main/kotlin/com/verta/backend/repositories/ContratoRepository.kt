@@ -4,6 +4,7 @@ import com.verta.backend.config.DatabaseFactory.dbQuery
 import com.verta.backend.dto.ContratoCreateDto
 import com.verta.backend.dto.ContratoDto
 import com.verta.backend.dto.GerarContratoDto
+import com.verta.backend.models.Arquivos
 import com.verta.backend.models.ContratoUsuarios
 import com.verta.backend.models.Contratos
 import com.verta.backend.models.StatusContrato
@@ -145,7 +146,16 @@ object ContratoRepository {
         }
     }
 
+    /**
+     * Exclui o contrato e tudo que depende dele (arquivos, versoes, compartilhamentos).
+     * Sem isso o DELETE falha com violacao de FK sempre que o contrato tiver ao menos uma
+     * versao - ou seja, qualquer contrato gerado a partir de um template (rascunho, em
+     * revisao, arquivado, etc), que era exatamente o caso que nao estava sendo excluido.
+     */
     suspend fun delete(id: Int): Boolean = dbQuery {
+        Arquivos.deleteWhere { Arquivos.contratoId eq id }
+        VersoesContrato.deleteWhere { VersoesContrato.contratoId eq id }
+        ContratoUsuarios.deleteWhere { ContratoUsuarios.contratoId eq id }
         Contratos.deleteWhere { Contratos.id eq id } > 0
     }
 

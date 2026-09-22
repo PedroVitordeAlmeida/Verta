@@ -3,6 +3,7 @@ package com.verta.backend.repositories
 import com.verta.backend.config.DatabaseFactory.dbQuery
 import com.verta.backend.dto.TemplateCreateDto
 import com.verta.backend.dto.TemplateDto
+import com.verta.backend.models.Contratos
 import com.verta.backend.models.Templates
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.ResultRow
@@ -59,7 +60,15 @@ object TemplateRepository {
         } > 0
     }
 
+    /**
+     * Exclui o template. Contratos ja gerados a partir dele nao sao apagados (perderiam
+     * historico) - so tem a referencia desvinculada, senao o DELETE falha com violacao de
+     * FK sempre que o template ja tiver sido usado, que era o caso que nao estava excluindo.
+     */
     suspend fun delete(id: Int): Boolean = dbQuery {
+        Contratos.update({ Contratos.templateId eq id }) {
+            it[templateId] = null
+        }
         Templates.deleteWhere { Templates.id eq id } > 0
     }
 }

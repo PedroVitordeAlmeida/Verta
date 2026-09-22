@@ -7,6 +7,7 @@ import { arquivosApi } from '../api/arquivos'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
 import { definirAlinhamentoLinha } from '../utils/formatarConteudo'
+import { baixarContratoPdf } from '../utils/pdf'
 import type { Contrato, StatusContrato, Template, VersaoContrato } from '../types'
 
 type Pasta = 'meus-contratos' | 'templates' | 'contratos-gerados' | 'contratos-assinados' | 'arquivados'
@@ -163,9 +164,11 @@ export function GerenciadorArquivos() {
                   🗑 Excluir selecionados ({selecionados.size})
                 </button>
               )}
-              <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
-                + Novo
-              </button>
+              {pasta === 'meus-contratos' && (
+                <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
+                  + Novo
+                </button>
+              )}
             </>
           )}
         </div>
@@ -636,7 +639,6 @@ function UploadArquivoForm({
   const { usuario } = useAuth()
   const [contratoId, setContratoId] = useState<number | ''>('')
   const [nomeArquivo, setNomeArquivo] = useState('')
-  const [caminhoArquivo, setCaminhoArquivo] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -652,11 +654,15 @@ function UploadArquivoForm({
         setErro('Esse contrato ainda não tem nenhuma versão gerada.')
         return
       }
+      const nome = nomeArquivo.trim()
+      // Nao ha armazenamento em servidor: o "upload" baixa o PDF direto no computador
+      // de quem esta cadastrando, e so o registro (nome/versao) fica salvo no banco.
+      baixarContratoPdf(nome, ultimaVersao.conteudo)
       await arquivosApi.criar({
         contratoId: Number(contratoId),
         versaoId: ultimaVersao.id,
-        nomeArquivo,
-        caminhoArquivo,
+        nomeArquivo: nome,
+        caminhoArquivo: `${nome}.pdf`,
         tipoArquivo: 'application/pdf',
         tamanho: null
       })
@@ -689,21 +695,15 @@ function UploadArquivoForm({
         <input
           value={nomeArquivo}
           onChange={(e) => setNomeArquivo(e.target.value)}
-          placeholder="contrato_assinado.pdf"
+          placeholder="contrato_assinado"
           required
         />
       </div>
-      <div className="field">
-        <label>Caminho / URL de armazenamento</label>
-        <input
-          value={caminhoArquivo}
-          onChange={(e) => setCaminhoArquivo(e.target.value)}
-          placeholder="/documentos/contratos/1/contrato.pdf"
-          required
-        />
+      <div className="form-panel-hint" style={{ marginTop: -6 }}>
+        Ao enviar, o PDF do contrato é baixado automaticamente no seu computador.
       </div>
       <button type="submit" className="btn btn-primary" disabled={enviando}>
-        {enviando ? 'Enviando...' : 'Registrar arquivo'}
+        {enviando ? 'Gerando PDF...' : '⬇ Upload'}
       </button>
     </form>
   )
