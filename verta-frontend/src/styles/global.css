@@ -173,6 +173,58 @@ a {
   background: var(--verta-surface);
 }
 
+.topbar-search-wrap {
+  position: relative;
+}
+
+.topbar-search-resultados {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--verta-surface);
+  border: 1px solid var(--verta-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  z-index: 20;
+}
+
+.topbar-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--verta-border);
+}
+
+.topbar-search-item:last-child {
+  border-bottom: none;
+}
+
+.topbar-search-item:hover {
+  background: var(--verta-bg);
+}
+
+.topbar-search-item-titulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-search-vazio {
+  cursor: default;
+  color: var(--verta-text-muted);
+}
+
+.topbar-search-vazio:hover {
+  background: none;
+}
+
 .topbar-user {
   display: flex;
   align-items: center;
@@ -572,6 +624,28 @@ a {
 
 .editor-toolbar span {
   padding: 4px 8px;
+}
+
+.format-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.format-btn {
+  border: 1px solid var(--verta-border);
+  background: var(--verta-bg);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--verta-text);
+}
+
+.format-btn:hover {
+  background: var(--verta-surface);
+  border-color: var(--verta-blue);
 }
 
 .editor-body {

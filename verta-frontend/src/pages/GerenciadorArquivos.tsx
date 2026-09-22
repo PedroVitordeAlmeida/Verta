@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { contratosApi } from '../api/contratos'
 import { templatesApi } from '../api/templates'
@@ -67,6 +67,33 @@ export function GerenciadorArquivos() {
     templatesApi.listar(usuario.empresaId).then(setTemplates)
   }
 
+  function recarregarContratos() {
+    if (!usuario) return
+    contratosApi.listar(usuario.empresaId).then(setContratos)
+  }
+
+  async function excluirTemplate(template: Template) {
+    if (!template.id) return
+    if (!window.confirm(`Excluir o template "${template.nome}"? Essa ação não pode ser desfeita.`)) return
+    try {
+      await templatesApi.remover(template.id)
+      recarregarTemplates()
+    } catch {
+      setErro('Não foi possível excluir o template.')
+    }
+  }
+
+  async function excluirContrato(contrato: Contrato) {
+    if (!contrato.id) return
+    if (!window.confirm(`Excluir o contrato "${contrato.titulo}"? Essa ação não pode ser desfeita.`)) return
+    try {
+      await contratosApi.remover(contrato.id)
+      recarregarContratos()
+    } catch {
+      setErro('Não foi possível excluir o contrato. Verifique se você tem permissão.')
+    }
+  }
+
   return (
     <div className="files-layout">
       <div className="card files-main">
@@ -116,9 +143,15 @@ export function GerenciadorArquivos() {
         {carregando ? (
           <div className="loading-text">Carregando...</div>
         ) : pasta === 'templates' ? (
-          <ListaTemplates templates={templates} onEditar={setTemplateEditando} />
+          <ListaTemplates templates={templates} onEditar={setTemplateEditando} onExcluir={excluirTemplate} />
         ) : (
-          <ListaContratos contratos={contratosFiltrados} onAbrir={(c) => navigate(`/contratos/${c.id}`)} />
+          <ListaContratos
+            contratos={contratosFiltrados}
+            usuarioId={usuario?.usuarioId}
+            isAdmin={usuario?.perfil === 'ADMIN'}
+            onAbrir={(c) => navigate(`/contratos/${c.id}`)}
+            onExcluir={excluirContrato}
+          />
         )}
       </div>
 
@@ -139,10 +172,16 @@ export function GerenciadorArquivos() {
 
 function ListaContratos({
   contratos,
-  onAbrir
+  usuarioId,
+  isAdmin,
+  onAbrir,
+  onExcluir
 }: {
   contratos: Contrato[]
+  usuarioId?: number
+  isAdmin: boolean
   onAbrir: (contrato: Contrato) => void
+  onExcluir: (contrato: Contrato) => void
 }) {
   if (contratos.length === 0) {
     return (
@@ -155,28 +194,49 @@ function ListaContratos({
 
   return (
     <div>
-      {contratos.map((contrato) => (
-        <div className="file-row" key={contrato.id} onClick={() => onAbrir(contrato)} style={{ cursor: 'pointer' }}>
-          <div className="file-row-left">
-            <div className="file-icon">📄</div>
-            <div>
-              <div className="file-name">{contrato.titulo}</div>
-              <div className="file-sub">{contrato.tipo ?? 'Contrato'}</div>
+      {contratos.map((contrato) => {
+        // Contrato assinado (FINALIZADO) nunca pode ser excluido por aqui - so arquivado/cancelado.
+        const podeExcluir =
+          contrato.status !== 'FINALIZADO' && (isAdmin || contrato.criadoPor === usuarioId)
+
+        return (
+          <div className="file-row" key={contrato.id} onClick={() => onAbrir(contrato)} style={{ cursor: 'pointer' }}>
+            <div className="file-row-left">
+              <div className="file-icon">📄</div>
+              <div>
+                <div className="file-name">{contrato.titulo}</div>
+                <div className="file-sub">{contrato.tipo ?? 'Contrato'}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <StatusBadge status={contrato.status} />
+              {podeExcluir && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onExcluir(contrato)
+                  }}
+                >
+                  🗑 Excluir
+                </button>
+              )}
             </div>
           </div>
-          <StatusBadge status={contrato.status} />
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
 function ListaTemplates({
   templates,
-  onEditar
+  onEditar,
+  onExcluir
 }: {
   templates: Template[]
   onEditar: (template: Template) => void
+  onExcluir: (template: Template) => void
 }) {
   if (templates.length === 0) {
     return (
@@ -205,6 +265,9 @@ function ListaTemplates({
             <button className="btn btn-secondary" onClick={() => onEditar(template)}>
               ✎ Editar
             </button>
+            <button className="btn btn-secondary" onClick={() => onExcluir(template)}>
+              🗑 Excluir
+            </button>
           </div>
         </div>
       ))}
@@ -226,6 +289,40 @@ function NovoTemplateForm({
   const [ativo, setAtivo] = useState(templateExistente?.ativo ?? true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  function aplicarFormatacao(tipo: 'negrito' | 'italico' | 'sublinhado' | 'lista' | 'titulo') {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const inicio = textarea.selectionStart
+    const fim = textarea.selectionEnd
+    const selecionado = conteudo.slice(inicio, fim) || 'texto'
+
+    let novoTrecho = selecionado
+    if (tipo === 'negrito') novoTrecho = `**${selecionado}**`
+    else if (tipo === 'italico') novoTrecho = `*${selecionado}*`
+    else if (tipo === 'sublinhado') novoTrecho = `__${selecionado}__`
+    else if (tipo === 'lista') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => (linha.startsWith('- ') ? linha : `- ${linha}`))
+        .join('\n')
+    } else if (tipo === 'titulo') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => (linha.startsWith('# ') ? linha : `# ${linha}`))
+        .join('\n')
+    }
+
+    const novoConteudo = conteudo.slice(0, inicio) + novoTrecho + conteudo.slice(fim)
+    setConteudo(novoConteudo)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const novaPosicao = inicio + novoTrecho.length
+      textarea.setSelectionRange(novaPosicao, novaPosicao)
+    })
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -280,13 +377,39 @@ function NovoTemplateForm({
       </div>
       <div className="field">
         <label>Conteúdo do template</label>
+        <div className="format-toolbar">
+          <button type="button" className="format-btn" title="Negrito" onClick={() => aplicarFormatacao('negrito')}>
+            <strong>B</strong>
+          </button>
+          <button type="button" className="format-btn" title="Itálico" onClick={() => aplicarFormatacao('italico')}>
+            <em>I</em>
+          </button>
+          <button
+            type="button"
+            className="format-btn"
+            title="Sublinhado"
+            onClick={() => aplicarFormatacao('sublinhado')}
+          >
+            <u>S</u>
+          </button>
+          <button type="button" className="format-btn" title="Lista com marcadores" onClick={() => aplicarFormatacao('lista')}>
+            • Lista
+          </button>
+          <button type="button" className="format-btn" title="Título" onClick={() => aplicarFormatacao('titulo')}>
+            # Título
+          </button>
+        </div>
         <textarea
+          ref={textareaRef}
           value={conteudo}
           onChange={(e) => setConteudo(e.target.value)}
           placeholder="Use {{variavel}} para os campos que serão preenchidos na geração do contrato."
           rows={8}
           required
         />
+        <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
+          Selecione um trecho do texto e clique num botão acima para formatar.
+        </div>
       </div>
       {templateExistente && (
         <div className="field">

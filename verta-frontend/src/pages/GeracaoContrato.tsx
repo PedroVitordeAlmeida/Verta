@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { templatesApi, extrairVariaveis } from '../api/templates'
 import { contratosApi } from '../api/contratos'
 import { useAuth } from '../context/AuthContext'
+import { renderizarConteudoFormatado } from '../utils/formatarConteudo'
 import type { Template } from '../types'
 
 const NOMES_DE_GRUPO: Record<string, string> = {
@@ -24,28 +25,6 @@ function rotuloDoCampo(nomeVariavel: string): string {
     ? nomeVariavel.split('_').slice(1).join(' ')
     : nomeVariavel
   return semPrefixo.charAt(0).toUpperCase() + semPrefixo.slice(1).replace(/_/g, ' ')
-}
-
-function renderizarPreview(conteudo: string, valores: Record<string, string>) {
-  const partes = conteudo.split(/({{\s*[\w.]+\s*}})/g)
-  return partes.map((parte, i) => {
-    const match = parte.match(/{{\s*([\w.]+)\s*}}/)
-    if (!match) return <span key={i}>{parte}</span>
-    const nomeVar = match[1]
-    const valor = valores[nomeVar]
-    if (valor) {
-      return (
-        <span key={i} className="placeholder-filled">
-          {valor}
-        </span>
-      )
-    }
-    return (
-      <span key={i} className="placeholder-empty">
-        {`{{${nomeVar}}}`}
-      </span>
-    )
-  })
 }
 
 export function GeracaoContrato() {
@@ -149,15 +128,7 @@ export function GeracaoContrato() {
   return (
     <div className="contract-layout">
       <div className="card">
-        <div className="editor-toolbar">
-          <span>B</span>
-          <span>I</span>
-          <span>U</span>
-          <span>≡</span>
-          <span>≡</span>
-          <span>≡</span>
-        </div>
-        <div className="editor-body">{renderizarPreview(templateSelecionado.conteudo, valores)}</div>
+        <div className="editor-body">{renderizarConteudoFormatado(templateSelecionado.conteudo, valores)}</div>
       </div>
 
       <form className="card form-panel" onSubmit={handleSubmit}>

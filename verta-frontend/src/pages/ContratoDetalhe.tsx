@@ -6,6 +6,8 @@ import { versoesContratoApi } from '../api/versoesContrato'
 import { usuariosApi } from '../api/usuarios'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
+import { baixarContratoPdf } from '../utils/pdf'
+import { renderizarConteudoFormatado } from '../utils/formatarConteudo'
 import type { Contrato, ContratoUsuario, StatusContrato, Usuario, VersaoContrato } from '../types'
 
 const TRANSICOES: Record<StatusContrato, { proximo: StatusContrato; rotulo: string }[]> = {
@@ -68,6 +70,9 @@ export function ContratoDetalhe() {
   const podeMudarStatus = souDono || souAdmin || !!meuVinculo?.podeEditar || !!meuVinculo?.podeAssinar
   const podeCompartilhar = souDono || souAdmin
   const statusEditavel = contrato?.status === 'RASCUNHO' || contrato?.status === 'EM_REVISAO'
+  // Contrato assinado (FINALIZADO) nunca pode ser excluido - so ate ser arquivado/cancelado.
+  const podeExcluirContrato =
+    !!contrato && contrato.status !== 'FINALIZADO' && (souDono || souAdmin || !!meuVinculo?.podeExcluir)
 
   const ultimaVersao = versoes[0]
 
@@ -120,6 +125,22 @@ export function ContratoDetalhe() {
     }
   }
 
+  async function excluirContrato() {
+    if (!contrato) return
+    if (!window.confirm(`Excluir o contrato "${contrato.titulo}"? Essa ação não pode ser desfeita.`)) return
+    try {
+      await contratosApi.remover(contratoId)
+      navigate('/arquivos')
+    } catch {
+      setErro('Não foi possível excluir o contrato.')
+    }
+  }
+
+  function exportarPdf() {
+    if (!contrato || !ultimaVersao) return
+    baixarContratoPdf(contrato.titulo, ultimaVersao.conteudo)
+  }
+
   if (carregando) {
     return <div className="loading-text">Carregando contrato...</div>
   }
@@ -146,11 +167,23 @@ export function ContratoDetalhe() {
             <div className="form-panel-title">{contrato.titulo}</div>
             <StatusBadge status={contrato.status} />
           </div>
-          {statusEditavel && podeEditarConteudo && !editando && (
-            <button className="btn btn-secondary" onClick={iniciarEdicao}>
-              ✎ Editar conteúdo
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {!!ultimaVersao && (
+              <button className="btn btn-secondary" onClick={exportarPdf}>
+                ⬇ Baixar PDF
+              </button>
+            )}
+            {statusEditavel && podeEditarConteudo && !editando && (
+              <button className="btn btn-secondary" onClick={iniciarEdicao}>
+                ✎ Editar conteúdo
+              </button>
+            )}
+            {podeExcluirContrato && (
+              <button className="btn btn-secondary" onClick={excluirContrato}>
+                🗑 Excluir
+              </button>
+            )}
+          </div>
         </div>
 
         {erro && <div className="status-message error">{erro}</div>}
@@ -175,7 +208,7 @@ export function ContratoDetalhe() {
         ) : (
           <div className="editor-body">
             {ultimaVersao ? (
-              ultimaVersao.conteudo.split('\n').map((linha, i) => <p key={i}>{linha}</p>)
+              renderizarConteudoFormatado(ultimaVersao.conteudo)
             ) : (
               <span className="empty-state-title">Esse contrato ainda não tem conteúdo gerado.</span>
             )}
