@@ -38,6 +38,10 @@ services:
       JWT_AUDIENCE: verta-app
       JWT_REALM: verta-app
       PORT: 8080
+      # Geracao de templates por IA (Groq, API compativel com OpenAI).
+      # Sem essa chave o botao "Gerar com IA" fica desabilitado - NUNCA versione a chave real.
+      GROQ_API_KEY: troque_pela_sua_chave_da_groq
+      GROQ_MODEL: llama-3.3-70b-versatile
     depends_on:
       - postgres
     ports:

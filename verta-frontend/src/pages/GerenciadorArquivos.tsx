@@ -363,7 +363,28 @@ function NovoTemplateForm({
   const [ativo, setAtivo] = useState(templateExistente?.ativo ?? true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [descricaoIa, setDescricaoIa] = useState('')
+  const [gerandoIa, setGerandoIa] = useState(false)
+  const [erroIa, setErroIa] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  async function gerarComIa() {
+    if (!descricaoIa.trim()) return
+    setGerandoIa(true)
+    setErroIa(null)
+    try {
+      const resultado = await templatesApi.gerarComIa(descricaoIa.trim())
+      setConteudo(resultado.conteudo)
+      if (!nome.trim()) setNome(resultado.nome)
+    } catch (e) {
+      const mensagem =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Não foi possível gerar o template com IA.'
+      setErroIa(mensagem)
+    } finally {
+      setGerandoIa(false)
+    }
+  }
 
   function aplicarFormatacao(
     tipo:
@@ -489,6 +510,34 @@ function NovoTemplateForm({
           onChange={(e) => setDescricao(e.target.value)}
           placeholder="Opcional"
         />
+      </div>
+      <div className="field">
+        <label>Gerar conteúdo com IA</label>
+        {erroIa && <div className="status-message error">{erroIa}</div>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input
+            value={descricaoIa}
+            onChange={(e) => setDescricaoIa(e.target.value)}
+            placeholder="Descreva o contrato, ex: prestação de serviços de consultoria de TI"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                gerarComIa()
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={gerarComIa}
+            disabled={gerandoIa || !descricaoIa.trim()}
+          >
+            {gerandoIa ? 'Gerando...' : '✨ Gerar com IA'}
+          </button>
+        </div>
+        <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
+          A IA preenche o conteúdo abaixo (e o nome, se estiver vazio). Revise antes de salvar.
+        </div>
       </div>
       <div className="field">
         <label>Conteúdo do template</label>

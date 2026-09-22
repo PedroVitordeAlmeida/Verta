@@ -1,6 +1,7 @@
 package com.verta.backend.plugins
 
 import com.verta.backend.dto.ErrorResponseDto
+import com.verta.backend.services.TemplateAiException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
@@ -14,6 +15,9 @@ fun Application.configureStatusPages() {
     install(StatusPages) {
         exception<IllegalArgumentException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, ErrorResponseDto(cause.message ?: "Requisicao invalida"))
+        }
+        exception<TemplateAiException> { call, cause ->
+            call.respond(HttpStatusCode.BadGateway, ErrorResponseDto(cause.message ?: "Falha ao gerar conteudo com IA"))
         }
         exception<NoSuchElementException> { call, cause ->
             call.respond(HttpStatusCode.NotFound, ErrorResponseDto(cause.message ?: "Recurso nao encontrado"))

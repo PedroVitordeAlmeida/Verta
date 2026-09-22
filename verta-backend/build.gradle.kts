@@ -32,6 +32,11 @@ dependencies {
     implementation("com.auth0:java-jwt:4.4.0")
     implementation("com.typesafe:config:1.4.3")
 
+    // Ktor client (chamadas a APIs externas, ex: geracao de templates por IA)
+    implementation("io.ktor:ktor-client-core-jvm:2.3.12")
+    implementation("io.ktor:ktor-client-cio-jvm:2.3.12")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm:2.3.12")
+
     // Exposed ORM
     implementation("org.jetbrains.exposed:exposed-core:0.52.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.52.0")

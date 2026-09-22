@@ -11,11 +11,12 @@ import com.verta.backend.routes.healthRoutes
 import com.verta.backend.routes.templateRoutes
 import com.verta.backend.routes.usuarioRoutes
 import com.verta.backend.routes.versaoContratoRoutes
+import com.verta.backend.services.TemplateAiService
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.routing.*
 
-fun Application.configureRouting(jwtConfig: JwtConfig) {
+fun Application.configureRouting(jwtConfig: JwtConfig, templateAiService: TemplateAiService) {
     routing {
         // Rotas publicas
         healthRoutes()
@@ -25,7 +26,7 @@ fun Application.configureRouting(jwtConfig: JwtConfig) {
         authenticate("auth-jwt") {
             empresaRoutes()
             usuarioRoutes()
-            templateRoutes()
+            templateRoutes(templateAiService)
             contratoRoutes()
             contratoUsuarioRoutes()
             versaoContratoRoutes()

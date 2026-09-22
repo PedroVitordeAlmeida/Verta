@@ -1,0 +1,9 @@
+.gradle/
+build/
+.idea/
+*.iml
+out/
+
+# Segredos locais (chaves de API, etc) - nunca versionar
+.env
+*.local
