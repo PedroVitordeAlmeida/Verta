@@ -10,7 +10,9 @@ data class TemplateDto(
     val descricao: String? = null,
     val conteudo: String,
     val ativo: Boolean = true,
-    val dataCriacao: String? = null
+    val dataCriacao: String? = null,
+    val validadoJuridicamente: Boolean = false,
+    val origemSistema: Boolean = false
 )
 
 @Serializable

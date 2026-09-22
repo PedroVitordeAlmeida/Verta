@@ -487,8 +487,11 @@ function NovoTemplateForm({
         })
       }
       onConcluido()
-    } catch {
-      setErro('Não foi possível salvar o template.')
+    } catch (e) {
+      const mensagem =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Não foi possível salvar o template.'
+      setErro(mensagem)
     } finally {
       setEnviando(false)
     }

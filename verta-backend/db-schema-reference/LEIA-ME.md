@@ -19,3 +19,9 @@ Principais diferencas do schema original pro atual:
 - Foram adicionadas restricoes extras (`empresa_id` combinado com o id em
   contratos/templates/usuarios) pra garantir que um contrato nunca fique
   ligado a um template ou usuario de outra empresa por engano.
+
+O arquivo `migration_planos_cobranca.sql` e uma migration separada (rodar depois
+do schema acima ja estar aplicado): cria a tabela `planos`, os campos de
+assinatura em `empresas` (plano/periodo/vigencia) e as flags de
+`validado_juridicamente`/`origem_sistema` em `templates`, usadas pelo recurso
+de Planos e Cobranca.

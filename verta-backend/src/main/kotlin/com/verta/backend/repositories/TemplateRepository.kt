@@ -1,12 +1,14 @@
 package com.verta.backend.repositories
 
 import com.verta.backend.config.DatabaseFactory.dbQuery
+import com.verta.backend.data.TemplatesBaseSeed
 import com.verta.backend.dto.TemplateCreateDto
 import com.verta.backend.dto.TemplateDto
 import com.verta.backend.models.Contratos
 import com.verta.backend.models.Templates
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.javatime.CurrentDateTime
@@ -22,7 +24,9 @@ object TemplateRepository {
         descricao = this[Templates.descricao],
         conteudo = this[Templates.conteudo],
         ativo = this[Templates.ativo],
-        dataCriacao = this[Templates.dataCriacao]?.toString()
+        dataCriacao = this[Templates.dataCriacao]?.toString(),
+        validadoJuridicamente = this[Templates.validadoJuridicamente],
+        origemSistema = this[Templates.origemSistema]
     )
 
     suspend fun findAll(empresaId: Int? = null): List<TemplateDto> = dbQuery {
@@ -38,7 +42,21 @@ object TemplateRepository {
         Templates.selectAll().where { Templates.id eq id }.map { it.toDto() }.singleOrNull()
     }
 
+    /** @throws LimitePlanoExcedidoException se a empresa ja atingiu o limite de templates do plano contratado. */
     suspend fun create(dto: TemplateCreateDto): TemplateDto = dbQuery {
+        val limites = PlanoRepository.limitesDeNaTransacao(dto.empresaId)
+        if (limites != null) {
+            val atuais = Templates
+                .selectAll()
+                .where { (Templates.empresaId eq dto.empresaId) and (Templates.origemSistema eq false) }
+                .count()
+            if (atuais >= limites.maxTemplates) {
+                throw LimitePlanoExcedidoException(
+                    "Limite de ${limites.maxTemplates} templates do plano atingido. Exclua um template existente ou peça upgrade de plano."
+                )
+            }
+        }
+
         val insertedId = Templates.insert {
             it[empresaId] = dto.empresaId
             it[nome] = dto.nome
@@ -70,5 +88,41 @@ object TemplateRepository {
             it[templateId] = null
         }
         Templates.deleteWhere { Templates.id eq id } > 0
+    }
+
+    /**
+     * Clona os 5 templates base (ver [TemplatesBaseSeed]) para a empresa na primeira vez que
+     * ela recebe um plano; em atribuicoes seguintes (renovacao ou troca de plano) so atualiza a
+     * flag [Templates.validadoJuridicamente] das copias ja existentes, sem duplicar linhas.
+     *
+     * So chame de dentro de uma transacao ja aberta (dbQuery de outro repositorio) - nao abre
+     * uma nova. Copias base nao contam na cota de criacao de templates da empresa
+     * ([Templates.origemSistema] = true, ver [create]).
+     */
+    fun sincronizarTemplatesBaseNaTransacao(empresaId: Int, validadoJuridicamente: Boolean) {
+        val jaClonados = Templates
+            .selectAll()
+            .where { (Templates.empresaId eq empresaId) and (Templates.origemSistema eq true) }
+            .count() > 0
+
+        if (jaClonados) {
+            Templates.update({ (Templates.empresaId eq empresaId) and (Templates.origemSistema eq true) }) {
+                it[Templates.validadoJuridicamente] = validadoJuridicamente
+            }
+            return
+        }
+
+        TemplatesBaseSeed.TEMPLATES.forEach { base ->
+            Templates.insert {
+                it[Templates.empresaId] = empresaId
+                it[nome] = base.nome
+                it[descricao] = base.descricao
+                it[conteudo] = base.conteudo
+                it[ativo] = true
+                it[dataCriacao] = CurrentDateTime
+                it[Templates.validadoJuridicamente] = validadoJuridicamente
+                it[origemSistema] = true
+            }
+        }
     }
 }

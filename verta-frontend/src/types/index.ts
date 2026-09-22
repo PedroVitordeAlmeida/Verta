@@ -5,6 +5,22 @@ export interface Empresa {
   nome: string
   cnpj?: string | null
   dataCadastro?: string | null
+  planoId?: number | null
+  periodoPlano?: string | null
+  dataInicioPlano?: string | null
+  dataFimPlano?: string | null
+}
+
+// Valores aceitos em Empresa.periodoPlano
+export type PeriodoPlano = 'SEIS_MESES' | 'UM_ANO' | 'TRES_ANOS'
+
+export interface Plano {
+  id: number
+  nome: string
+  maxUsuarios: number
+  maxTemplates: number
+  validacaoJuridicaBase: boolean
+  quotaGeracaoJuridicaMensal?: number | null
 }
 
 export interface Usuario {
@@ -25,6 +41,8 @@ export interface Template {
   conteudo: string
   ativo: boolean
   dataCriacao?: string | null
+  validadoJuridicamente?: boolean
+  origemSistema?: boolean
 }
 
 // Valores fixos aceitos pelo banco (CHECK constraint em contratos.status)

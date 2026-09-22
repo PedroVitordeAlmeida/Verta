@@ -7,7 +7,11 @@ data class EmpresaDto(
     val id: Int? = null,
     val nome: String,
     val cnpj: String? = null,
-    val dataCadastro: String? = null
+    val dataCadastro: String? = null,
+    val planoId: Int? = null,
+    val periodoPlano: String? = null,
+    val dataInicioPlano: String? = null,
+    val dataFimPlano: String? = null
 )
 
 @Serializable

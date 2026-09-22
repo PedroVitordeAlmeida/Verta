@@ -60,7 +60,18 @@ object UsuarioRepository {
             .singleOrNull()
     }
 
+    /** @throws LimitePlanoExcedidoException se a empresa ja atingiu o limite de usuarios do plano contratado. */
     suspend fun create(dto: UsuarioCreateDto): UsuarioDto = dbQuery {
+        val limites = PlanoRepository.limitesDeNaTransacao(dto.empresaId)
+        if (limites != null) {
+            val atuais = Usuarios.selectAll().where { Usuarios.empresaId eq dto.empresaId }.count()
+            if (atuais >= limites.maxUsuarios) {
+                throw LimitePlanoExcedidoException(
+                    "Limite de ${limites.maxUsuarios} usuários do plano atingido. Remova um usuário existente ou peça upgrade de plano."
+                )
+            }
+        }
+
         val insertedId = Usuarios.insert {
             it[empresaId] = dto.empresaId
             it[nome] = dto.nome

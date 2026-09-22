@@ -15,3 +15,6 @@ fun ApplicationCall.perfilLogado(): String =
     principal<JWTPrincipal>()!!.payload.getClaim("perfil").asString()
 
 fun ApplicationCall.isAdminLogado(): Boolean = perfilLogado() == "ADMIN"
+
+/** SUPERADMIN = equipe Verta/Dalcomad; unico perfil autorizado a atribuir plano as empresas. */
+fun ApplicationCall.isSuperAdminLogado(): Boolean = perfilLogado() == "SUPERADMIN"

@@ -10,5 +10,11 @@ object Empresas : Table("empresas") {
     val cnpj = varchar("cnpj", 18).nullable()
     val dataCadastro = datetime("data_cadastro").nullable()
 
+    // Assinatura ativa da empresa (null = nenhum plano atribuido ainda, sem limites aplicados).
+    val planoId = integer("plano_id").references(Planos.id).nullable()
+    val periodoPlano = varchar("periodo_plano", 20).nullable()
+    val dataInicioPlano = datetime("data_inicio_plano").nullable()
+    val dataFimPlano = datetime("data_fim_plano").nullable()
+
     override val primaryKey = PrimaryKey(id)
 }

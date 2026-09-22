@@ -8,6 +8,7 @@ import com.verta.backend.routes.contratoUsuarioRoutes
 import com.verta.backend.routes.dashboardRoutes
 import com.verta.backend.routes.empresaRoutes
 import com.verta.backend.routes.healthRoutes
+import com.verta.backend.routes.planoRoutes
 import com.verta.backend.routes.templateRoutes
 import com.verta.backend.routes.usuarioRoutes
 import com.verta.backend.routes.versaoContratoRoutes
@@ -26,6 +27,7 @@ fun Application.configureRouting(jwtConfig: JwtConfig, templateAiService: Templa
         authenticate("auth-jwt") {
             empresaRoutes()
             usuarioRoutes()
+            planoRoutes()
             templateRoutes(templateAiService)
             contratoRoutes()
             contratoUsuarioRoutes()

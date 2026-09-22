@@ -76,8 +76,11 @@ export function Configuracoes() {
       }
       fecharForm()
       carregarUsuarios()
-    } catch {
-      setErroForm('Não foi possível salvar o usuário. Confira os campos e tente novamente.')
+    } catch (e) {
+      const mensagem =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Não foi possível salvar o usuário. Confira os campos e tente novamente.'
+      setErroForm(mensagem)
     } finally {
       setEnviando(false)
     }

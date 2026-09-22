@@ -1,6 +1,7 @@
 package com.verta.backend.plugins
 
 import com.verta.backend.dto.ErrorResponseDto
+import com.verta.backend.repositories.LimitePlanoExcedidoException
 import com.verta.backend.services.TemplateAiException
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -18,6 +19,9 @@ fun Application.configureStatusPages() {
         }
         exception<TemplateAiException> { call, cause ->
             call.respond(HttpStatusCode.BadGateway, ErrorResponseDto(cause.message ?: "Falha ao gerar conteudo com IA"))
+        }
+        exception<LimitePlanoExcedidoException> { call, cause ->
+            call.respond(HttpStatusCode.Forbidden, ErrorResponseDto(cause.message ?: "Limite do plano atingido"))
         }
         exception<NoSuchElementException> { call, cause ->
             call.respond(HttpStatusCode.NotFound, ErrorResponseDto(cause.message ?: "Recurso nao encontrado"))
