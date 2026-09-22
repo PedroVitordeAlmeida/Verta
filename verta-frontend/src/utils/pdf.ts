@@ -11,12 +11,9 @@ function textoSemMarcacoes(linha: string): string {
     .replace(/\*(.+?)\*/g, '$1')
 }
 
-interface LinhaPdf {
-  texto: string
-  alinhamento?: Alinhamento
-}
+const ALTURA_LINHA = 16
 
-/** Gera um PDF simples (titulo + conteudo em paragrafos, respeitando o alinhamento) e dispara o download. */
+/** Gera um PDF com apenas o conteudo do contrato (sem o titulo/nome), respeitando o alinhamento de cada paragrafo. */
 export function baixarContratoPdf(titulo: string, conteudo: string) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const margem = 48
@@ -24,46 +21,51 @@ export function baixarContratoPdf(titulo: string, conteudo: string) {
   const larguraUtil = larguraPagina - margem * 2
   const alturaPagina = doc.internal.pageSize.getHeight()
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.text(titulo, margem, margem)
-
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
 
-  const linhas: LinhaPdf[] = []
-  for (const paragrafoBruto of conteudo.split('\n')) {
-    const { texto: semAlinhamento, alinhamento } = interpretarAlinhamento(paragrafoBruto)
-    const paragrafo = textoSemMarcacoes(semAlinhamento)
-    if (paragrafo.trim() === '') {
-      linhas.push({ texto: '' })
-    } else {
-      const quebradas = doc.splitTextToSize(paragrafo, larguraUtil) as string[]
-      quebradas.forEach((texto) => linhas.push({ texto, alinhamento }))
-    }
-  }
+  let y = margem
 
-  let y = margem + 28
-  for (const linha of linhas) {
-    if (y > alturaPagina - margem) {
+  function garantirEspaco(alturaNecessaria: number) {
+    if (y + alturaNecessaria > alturaPagina - margem) {
       doc.addPage()
       y = margem
     }
-    if (linha.texto === '') {
-      y += 16
+  }
+
+  for (const paragrafoBruto of conteudo.split('\n')) {
+    const { texto: semAlinhamento, alinhamento } = interpretarAlinhamento(paragrafoBruto)
+    const paragrafo = textoSemMarcacoes(semAlinhamento)
+
+    if (paragrafo.trim() === '') {
+      y += ALTURA_LINHA
       continue
     }
 
-    if (linha.alinhamento === 'centro') {
-      doc.text(linha.texto, larguraPagina / 2, y, { align: 'center' })
-    } else if (linha.alinhamento === 'direita') {
-      doc.text(linha.texto, larguraPagina - margem, y, { align: 'right' })
-    } else if (linha.alinhamento === 'justificado') {
-      doc.text(linha.texto, margem, y, { align: 'justify', maxWidth: larguraUtil })
-    } else {
-      doc.text(linha.texto, margem, y)
+    const quebradas = doc.splitTextToSize(paragrafo, larguraUtil) as string[]
+
+    if (alinhamento === 'justificado' && quebradas.length > 1) {
+      // O modo "justify" do jsPDF so estica o espacamento entre palavras quando
+      // recebe o paragrafo inteiro (array de linhas) de uma vez, com maxWidth.
+      garantirEspaco(quebradas.length * ALTURA_LINHA)
+      doc.text(quebradas, margem, y, { align: 'justify', maxWidth: larguraUtil })
+      y += quebradas.length * ALTURA_LINHA
+      continue
     }
-    y += 16
+
+    for (const linha of quebradas) {
+      garantirEspaco(ALTURA_LINHA)
+      const alinhamentoEfetivo: Alinhamento | undefined =
+        alinhamento === 'justificado' ? undefined : alinhamento
+      if (alinhamentoEfetivo === 'centro') {
+        doc.text(linha, larguraPagina / 2, y, { align: 'center' })
+      } else if (alinhamentoEfetivo === 'direita') {
+        doc.text(linha, larguraPagina - margem, y, { align: 'right' })
+      } else {
+        doc.text(linha, margem, y)
+      }
+      y += ALTURA_LINHA
+    }
   }
 
   const nomeArquivo = titulo.replace(/[^\w\-]+/g, '_').replace(/_+/g, '_') || 'contrato'

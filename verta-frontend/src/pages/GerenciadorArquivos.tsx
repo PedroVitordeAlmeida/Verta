@@ -30,6 +30,7 @@ const STATUS_POR_PASTA: Record<Pasta, StatusContrato[] | null> = {
 export function GerenciadorArquivos() {
   const { usuario } = useAuth()
   const navigate = useNavigate()
+  const isAdmin = usuario?.perfil === 'ADMIN'
   const [pasta, setPasta] = useState<Pasta>('meus-contratos')
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
@@ -37,6 +38,7 @@ export function GerenciadorArquivos() {
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarUpload, setMostrarUpload] = useState(false)
   const [templateEditando, setTemplateEditando] = useState<Template | null>(null)
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     if (!usuario) return
@@ -58,10 +60,16 @@ export function GerenciadorArquivos() {
     }
   }, [usuario])
 
+  useEffect(() => {
+    setSelecionados(new Set())
+  }, [pasta])
+
   const statusFiltro = STATUS_POR_PASTA[pasta]
   const contratosFiltrados = statusFiltro
     ? contratos.filter((c) => statusFiltro.includes(c.status))
     : contratos
+
+  const ehPastaDeContratos = pasta !== 'templates'
 
   function recarregarTemplates() {
     if (!usuario) return
@@ -95,22 +103,71 @@ export function GerenciadorArquivos() {
     }
   }
 
+  function alternarSelecao(id: number) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
+
+  async function excluirSelecionados() {
+    if (selecionados.size === 0) return
+    if (
+      !window.confirm(
+        `Excluir ${selecionados.size} contrato(s) selecionado(s)? Essa ação não pode ser desfeita.`
+      )
+    ) {
+      return
+    }
+    try {
+      await Promise.all(Array.from(selecionados).map((id) => contratosApi.remover(id)))
+      setSelecionados(new Set())
+      recarregarContratos()
+    } catch {
+      setErro('Não foi possível excluir todos os contratos selecionados. Verifique suas permissões.')
+      recarregarContratos()
+    }
+  }
+
   return (
     <div className="files-layout">
       <div className="card files-main">
         <div className="files-toolbar">
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              setTemplateEditando(null)
-              setMostrarUpload((v) => !v)
-            }}
-          >
-            {pasta === 'templates' ? '+ Novo template' : '↑ Upload'}
-          </button>
-          <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
-            + Novo
-          </button>
+          {pasta === 'templates' && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setTemplateEditando(null)
+                setMostrarUpload((v) => !v)
+              }}
+            >
+              + Novo template
+            </button>
+          )}
+
+          {ehPastaDeContratos && (
+            <>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setTemplateEditando(null)
+                  setMostrarUpload((v) => !v)
+                }}
+              >
+                ↑ Upload
+              </button>
+              {selecionados.size > 0 && (
+                <button className="btn btn-secondary" onClick={excluirSelecionados}>
+                  🗑 Excluir selecionados ({selecionados.size})
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={() => navigate('/contratos/gerar')}>
+                + Novo
+              </button>
+            </>
+          )}
         </div>
 
         {templateEditando && (
@@ -132,7 +189,7 @@ export function GerenciadorArquivos() {
           />
         )}
 
-        {mostrarUpload && pasta !== 'templates' && (
+        {mostrarUpload && ehPastaDeContratos && (
           <UploadArquivoForm
             contratos={contratos}
             onConcluido={() => setMostrarUpload(false)}
@@ -149,7 +206,9 @@ export function GerenciadorArquivos() {
           <ListaContratos
             contratos={contratosFiltrados}
             usuarioId={usuario?.usuarioId}
-            isAdmin={usuario?.perfil === 'ADMIN'}
+            isAdmin={isAdmin}
+            selecionados={selecionados}
+            onAlternarSelecao={alternarSelecao}
             onAbrir={(c) => navigate(`/contratos/${c.id}`)}
             onExcluir={excluirContrato}
           />
@@ -175,12 +234,16 @@ function ListaContratos({
   contratos,
   usuarioId,
   isAdmin,
+  selecionados,
+  onAlternarSelecao,
   onAbrir,
   onExcluir
 }: {
   contratos: Contrato[]
   usuarioId?: number
   isAdmin: boolean
+  selecionados: Set<number>
+  onAlternarSelecao: (id: number) => void
   onAbrir: (contrato: Contrato) => void
   onExcluir: (contrato: Contrato) => void
 }) {
@@ -197,12 +260,22 @@ function ListaContratos({
     <div>
       {contratos.map((contrato) => {
         // Contrato assinado (FINALIZADO) nunca pode ser excluido por aqui - so arquivado/cancelado.
+        // Poder de excluir: quem criou o contrato, contas ADMIN, ou quem recebeu permissao de excluir
+        // via compartilhamento (essa ultima so e reconhecida dentro do proprio contrato, em /contratos/:id).
         const podeExcluir =
           contrato.status !== 'FINALIZADO' && (isAdmin || contrato.criadoPor === usuarioId)
 
         return (
           <div className="file-row" key={contrato.id} onClick={() => onAbrir(contrato)} style={{ cursor: 'pointer' }}>
             <div className="file-row-left">
+              {podeExcluir && (
+                <input
+                  type="checkbox"
+                  checked={selecionados.has(contrato.id!)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => onAlternarSelecao(contrato.id!)}
+                />
+              )}
               <div className="file-icon">📄</div>
               <div>
                 <div className="file-name">{contrato.titulo}</div>

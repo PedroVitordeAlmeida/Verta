@@ -162,50 +162,56 @@ export function ContratoDetalhe() {
   return (
     <div className="contract-layout">
       <div className="card">
-        <div className="files-toolbar" style={{ justifyContent: 'space-between' }}>
-          <div>
-            <div className="form-panel-title">{contrato.titulo}</div>
-            <StatusBadge status={contrato.status} />
+        <div className="form-panel" style={{ paddingBottom: editando ? 24 : 0 }}>
+          <div className="files-toolbar" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+            <div>
+              <div className="form-panel-title">{contrato.titulo}</div>
+              <StatusBadge status={contrato.status} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {!!ultimaVersao && (
+                <button className="btn btn-secondary" onClick={exportarPdf}>
+                  ⬇ Baixar PDF
+                </button>
+              )}
+              {statusEditavel && podeEditarConteudo && !editando && (
+                <button className="btn btn-secondary" onClick={iniciarEdicao}>
+                  ✎ Editar conteúdo
+                </button>
+              )}
+              {podeExcluirContrato && (
+                <button className="btn btn-secondary" onClick={excluirContrato}>
+                  🗑 Excluir
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {!!ultimaVersao && (
-              <button className="btn btn-secondary" onClick={exportarPdf}>
-                ⬇ Baixar PDF
-              </button>
-            )}
-            {statusEditavel && podeEditarConteudo && !editando && (
-              <button className="btn btn-secondary" onClick={iniciarEdicao}>
-                ✎ Editar conteúdo
-              </button>
-            )}
-            {podeExcluirContrato && (
-              <button className="btn btn-secondary" onClick={excluirContrato}>
-                🗑 Excluir
-              </button>
-            )}
-          </div>
+
+          {erro && <div className="status-message error">{erro}</div>}
+
+          {editando && (
+            <>
+              <div className="field" style={{ marginTop: 12 }}>
+                <textarea
+                  value={conteudoEditado}
+                  onChange={(e) => setConteudoEditado(e.target.value)}
+                  rows={18}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary" onClick={() => setEditando(false)} disabled={salvando}>
+                  Cancelar
+                </button>
+                <button className="btn btn-primary" onClick={salvarEdicao} disabled={salvando}>
+                  {salvando ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
-        {erro && <div className="status-message error">{erro}</div>}
-
-        {editando ? (
-          <>
-            <textarea
-              value={conteudoEditado}
-              onChange={(e) => setConteudoEditado(e.target.value)}
-              rows={18}
-              style={{ width: '100%', marginTop: 12 }}
-            />
-            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-              <button className="btn btn-secondary" onClick={() => setEditando(false)} disabled={salvando}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" onClick={salvarEdicao} disabled={salvando}>
-                {salvando ? 'Salvando...' : 'Salvar alterações'}
-              </button>
-            </div>
-          </>
-        ) : (
+        {!editando && (
           <div className="editor-body">
             {ultimaVersao ? (
               renderizarConteudoFormatado(ultimaVersao.conteudo)
