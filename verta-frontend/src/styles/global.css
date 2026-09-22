@@ -648,6 +648,12 @@ a {
   border-color: var(--verta-blue);
 }
 
+.format-toolbar-separador {
+  width: 1px;
+  background: var(--verta-border);
+  margin: 2px 4px;
+}
+
 .editor-body {
   padding: 28px 34px;
   font-size: 14px;

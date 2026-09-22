@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import { interpretarAlinhamento, type Alinhamento } from './formatarConteudo'
 
 /** Remove as marcacoes de formatacao (**negrito**, *italico*, __sublinhado__, # titulo, - item) antes de exportar. */
 function textoSemMarcacoes(linha: string): string {
@@ -10,11 +11,17 @@ function textoSemMarcacoes(linha: string): string {
     .replace(/\*(.+?)\*/g, '$1')
 }
 
-/** Gera um PDF simples (titulo + conteudo em paragrafos) e dispara o download no navegador. */
+interface LinhaPdf {
+  texto: string
+  alinhamento?: Alinhamento
+}
+
+/** Gera um PDF simples (titulo + conteudo em paragrafos, respeitando o alinhamento) e dispara o download. */
 export function baixarContratoPdf(titulo: string, conteudo: string) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const margem = 48
-  const larguraUtil = doc.internal.pageSize.getWidth() - margem * 2
+  const larguraPagina = doc.internal.pageSize.getWidth()
+  const larguraUtil = larguraPagina - margem * 2
   const alturaPagina = doc.internal.pageSize.getHeight()
 
   doc.setFont('helvetica', 'bold')
@@ -24,13 +31,15 @@ export function baixarContratoPdf(titulo: string, conteudo: string) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
 
-  const linhas: string[] = []
+  const linhas: LinhaPdf[] = []
   for (const paragrafoBruto of conteudo.split('\n')) {
-    const paragrafo = textoSemMarcacoes(paragrafoBruto)
+    const { texto: semAlinhamento, alinhamento } = interpretarAlinhamento(paragrafoBruto)
+    const paragrafo = textoSemMarcacoes(semAlinhamento)
     if (paragrafo.trim() === '') {
-      linhas.push('')
+      linhas.push({ texto: '' })
     } else {
-      linhas.push(...(doc.splitTextToSize(paragrafo, larguraUtil) as string[]))
+      const quebradas = doc.splitTextToSize(paragrafo, larguraUtil) as string[]
+      quebradas.forEach((texto) => linhas.push({ texto, alinhamento }))
     }
   }
 
@@ -40,7 +49,20 @@ export function baixarContratoPdf(titulo: string, conteudo: string) {
       doc.addPage()
       y = margem
     }
-    doc.text(linha, margem, y)
+    if (linha.texto === '') {
+      y += 16
+      continue
+    }
+
+    if (linha.alinhamento === 'centro') {
+      doc.text(linha.texto, larguraPagina / 2, y, { align: 'center' })
+    } else if (linha.alinhamento === 'direita') {
+      doc.text(linha.texto, larguraPagina - margem, y, { align: 'right' })
+    } else if (linha.alinhamento === 'justificado') {
+      doc.text(linha.texto, margem, y, { align: 'justify', maxWidth: larguraUtil })
+    } else {
+      doc.text(linha.texto, margem, y)
+    }
     y += 16
   }
 

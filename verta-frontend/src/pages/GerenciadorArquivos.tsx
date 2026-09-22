@@ -6,6 +6,7 @@ import { versoesContratoApi } from '../api/versoesContrato'
 import { arquivosApi } from '../api/arquivos'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
+import { definirAlinhamentoLinha } from '../utils/formatarConteudo'
 import type { Contrato, StatusContrato, Template, VersaoContrato } from '../types'
 
 type Pasta = 'meus-contratos' | 'templates' | 'contratos-gerados' | 'contratos-assinados' | 'arquivados'
@@ -291,11 +292,32 @@ function NovoTemplateForm({
   const [erro, setErro] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  function aplicarFormatacao(tipo: 'negrito' | 'italico' | 'sublinhado' | 'lista' | 'titulo') {
+  function aplicarFormatacao(
+    tipo:
+      | 'negrito'
+      | 'italico'
+      | 'sublinhado'
+      | 'lista'
+      | 'titulo'
+      | 'alinhar-esquerda'
+      | 'alinhar-centro'
+      | 'alinhar-direita'
+      | 'justificar'
+  ) {
     const textarea = textareaRef.current
     if (!textarea) return
-    const inicio = textarea.selectionStart
-    const fim = textarea.selectionEnd
+    let inicio = textarea.selectionStart
+    let fim = textarea.selectionEnd
+
+    // Lista/titulo/alinhamento agem sobre a linha inteira: se nada estiver selecionado,
+    // expande automaticamente para a linha onde o cursor esta.
+    const OPERACOES_DE_LINHA = ['lista', 'titulo', 'alinhar-esquerda', 'alinhar-centro', 'alinhar-direita', 'justificar']
+    if (OPERACOES_DE_LINHA.includes(tipo) && inicio === fim) {
+      inicio = conteudo.lastIndexOf('\n', inicio - 1) + 1
+      const proximaQuebra = conteudo.indexOf('\n', fim)
+      fim = proximaQuebra === -1 ? conteudo.length : proximaQuebra
+    }
+
     const selecionado = conteudo.slice(inicio, fim) || 'texto'
 
     let novoTrecho = selecionado
@@ -311,6 +333,26 @@ function NovoTemplateForm({
       novoTrecho = selecionado
         .split('\n')
         .map((linha) => (linha.startsWith('# ') ? linha : `# ${linha}`))
+        .join('\n')
+    } else if (tipo === 'alinhar-esquerda') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => definirAlinhamentoLinha(linha, null))
+        .join('\n')
+    } else if (tipo === 'alinhar-centro') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => definirAlinhamentoLinha(linha, 'centro'))
+        .join('\n')
+    } else if (tipo === 'alinhar-direita') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => definirAlinhamentoLinha(linha, 'direita'))
+        .join('\n')
+    } else if (tipo === 'justificar') {
+      novoTrecho = selecionado
+        .split('\n')
+        .map((linha) => definirAlinhamentoLinha(linha, 'justificado'))
         .join('\n')
     }
 
@@ -398,6 +440,34 @@ function NovoTemplateForm({
           <button type="button" className="format-btn" title="Título" onClick={() => aplicarFormatacao('titulo')}>
             # Título
           </button>
+          <span className="format-toolbar-separador" />
+          <button
+            type="button"
+            className="format-btn"
+            title="Alinhar à esquerda"
+            onClick={() => aplicarFormatacao('alinhar-esquerda')}
+          >
+            ⯇ Esquerda
+          </button>
+          <button
+            type="button"
+            className="format-btn"
+            title="Centralizar"
+            onClick={() => aplicarFormatacao('alinhar-centro')}
+          >
+            ⯃ Centro
+          </button>
+          <button
+            type="button"
+            className="format-btn"
+            title="Alinhar à direita"
+            onClick={() => aplicarFormatacao('alinhar-direita')}
+          >
+            ⯈ Direita
+          </button>
+          <button type="button" className="format-btn" title="Justificar" onClick={() => aplicarFormatacao('justificar')}>
+            ☰ Justificar
+          </button>
         </div>
         <textarea
           ref={textareaRef}
@@ -408,7 +478,8 @@ function NovoTemplateForm({
           required
         />
         <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
-          Selecione um trecho do texto e clique num botão acima para formatar.
+          Selecione um trecho do texto (ou apenas posicione o cursor na linha) e clique num botão acima para
+          formatar ou alinhar o parágrafo.
         </div>
       </div>
       {templateExistente && (
