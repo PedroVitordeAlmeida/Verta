@@ -648,10 +648,38 @@ a {
   border-color: var(--verta-blue);
 }
 
+.format-btn.active {
+  background: var(--verta-blue);
+  border-color: var(--verta-blue);
+  color: #fff;
+}
+
 .format-toolbar-separador {
   width: 1px;
   background: var(--verta-border);
   margin: 2px 4px;
+}
+
+.tiptap-wrapper .tiptap-content {
+  border: 1px solid var(--verta-border);
+  border-radius: 7px;
+  background: var(--verta-surface);
+  min-height: 220px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.tiptap-wrapper .tiptap-content .ProseMirror {
+  outline: none;
+  min-height: 220px;
+}
+
+.tiptap-wrapper .tiptap-content:focus-within {
+  outline: 2px solid var(--verta-blue);
+}
+
+.tiptap-content ul {
+  padding-left: 22px;
 }
 
 .editor-body {

@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import { interpretarAlinhamento, type Alinhamento } from './formatarConteudo'
+import { interpretarAlinhamento, pareceHtml, type Alinhamento } from './formatarConteudo'
 
 /** Remove as marcacoes de formatacao (**negrito**, *italico*, __sublinhado__, # titulo, - item) antes de exportar. */
 function textoSemMarcacoes(linha: string): string {
@@ -9,6 +9,55 @@ function textoSemMarcacoes(linha: string): string {
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/\*(.+?)\*/g, '$1')
+}
+
+interface ParagrafoPdf {
+  texto: string
+  alinhamento?: Alinhamento
+}
+
+/** Formato antigo (marcacoes de texto): um paragrafo por linha. */
+function extrairParagrafosDeMarkup(conteudo: string): ParagrafoPdf[] {
+  return conteudo.split('\n').map((linhaBruta) => {
+    const { texto: semAlinhamento, alinhamento } = interpretarAlinhamento(linhaBruta)
+    return { texto: textoSemMarcacoes(semAlinhamento), alinhamento }
+  })
+}
+
+const ALINHAMENTO_CSS_INVERSO: Record<string, Alinhamento> = {
+  center: 'centro',
+  right: 'direita',
+  justify: 'justificado'
+}
+
+function alinhamentoDoElemento(el: Element): Alinhamento | undefined {
+  const valor = (el as HTMLElement).style?.textAlign
+  return valor ? ALINHAMENTO_CSS_INVERSO[valor] : undefined
+}
+
+/** Formato novo (HTML do editor Tiptap): um paragrafo por bloco (p/h1/li), sem renderizar negrito/italico (mesma fidelidade do formato antigo, que tambem so imprime texto puro). */
+function extrairParagrafosDeHtml(html: string): ParagrafoPdf[] {
+  const documento = new DOMParser().parseFromString(html, 'text/html')
+  const paragrafos: ParagrafoPdf[] = []
+
+  documento.body.childNodes.forEach((no) => {
+    if (!(no instanceof HTMLElement)) return
+    const tag = no.tagName.toLowerCase()
+
+    if (tag === 'ul' || tag === 'ol') {
+      no.querySelectorAll(':scope > li').forEach((li) => {
+        paragrafos.push({
+          texto: `• ${(li.textContent ?? '').trim()}`,
+          alinhamento: alinhamentoDoElemento(li) ?? alinhamentoDoElemento(no)
+        })
+      })
+      return
+    }
+
+    paragrafos.push({ texto: (no.textContent ?? '').trim(), alinhamento: alinhamentoDoElemento(no) })
+  })
+
+  return paragrafos
 }
 
 const ALTURA_LINHA = 16
@@ -33,10 +82,9 @@ export function baixarContratoPdf(titulo: string, conteudo: string) {
     }
   }
 
-  for (const paragrafoBruto of conteudo.split('\n')) {
-    const { texto: semAlinhamento, alinhamento } = interpretarAlinhamento(paragrafoBruto)
-    const paragrafo = textoSemMarcacoes(semAlinhamento)
+  const paragrafos = pareceHtml(conteudo) ? extrairParagrafosDeHtml(conteudo) : extrairParagrafosDeMarkup(conteudo)
 
+  for (const { texto: paragrafo, alinhamento } of paragrafos) {
     if (paragrafo.trim() === '') {
       y += ALTURA_LINHA
       continue

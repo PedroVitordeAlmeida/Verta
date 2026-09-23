@@ -7,7 +7,7 @@ import { usuariosApi } from '../api/usuarios'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
 import { baixarContratoPdf } from '../utils/pdf'
-import { renderizarConteudoFormatado } from '../utils/formatarConteudo'
+import { ConteudoRenderizado } from '../utils/formatarConteudo'
 import type { Contrato, ContratoUsuario, StatusContrato, Usuario, VersaoContrato } from '../types'
 
 const TRANSICOES: Record<StatusContrato, { proximo: StatusContrato; rotulo: string }[]> = {
@@ -214,7 +214,7 @@ export function ContratoDetalhe() {
         {!editando && (
           <div className="editor-body">
             {ultimaVersao ? (
-              renderizarConteudoFormatado(ultimaVersao.conteudo)
+              <ConteudoRenderizado conteudo={ultimaVersao.conteudo} />
             ) : (
               <span className="empty-state-title">Esse contrato ainda não tem conteúdo gerado.</span>
             )}

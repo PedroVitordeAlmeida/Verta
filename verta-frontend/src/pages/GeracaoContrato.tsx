@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { templatesApi, extrairVariaveis } from '../api/templates'
 import { contratosApi } from '../api/contratos'
 import { useAuth } from '../context/AuthContext'
-import { renderizarConteudoFormatado } from '../utils/formatarConteudo'
+import { ConteudoRenderizado } from '../utils/formatarConteudo'
 import type { Template } from '../types'
 
 const NOMES_DE_GRUPO: Record<string, string> = {
@@ -128,7 +128,9 @@ export function GeracaoContrato() {
   return (
     <div className="contract-layout">
       <div className="card">
-        <div className="editor-body">{renderizarConteudoFormatado(templateSelecionado.conteudo, valores)}</div>
+        <div className="editor-body">
+          <ConteudoRenderizado conteudo={templateSelecionado.conteudo} valores={valores} />
+        </div>
       </div>
 
       <form className="card form-panel" onSubmit={handleSubmit}>

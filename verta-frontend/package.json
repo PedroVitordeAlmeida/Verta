@@ -9,6 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tiptap/extension-text-align": "^2.27.3",
+    "@tiptap/extension-underline": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/react": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
     "axios": "^1.7.7",
     "jspdf": "^2.5.2",
     "react": "^18.3.1",

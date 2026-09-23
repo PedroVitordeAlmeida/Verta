@@ -5,8 +5,9 @@ import { templatesApi } from '../api/templates'
 import { versoesContratoApi } from '../api/versoesContrato'
 import { arquivosApi } from '../api/arquivos'
 import { StatusBadge } from '../components/StatusBadge'
+import { TemplateEditor, type TemplateEditorHandle } from '../components/TemplateEditor'
 import { useAuth } from '../context/AuthContext'
-import { definirAlinhamentoLinha } from '../utils/formatarConteudo'
+import { converterMarkupAntigoParaHtml, pareceHtml } from '../utils/formatarConteudo'
 import { baixarContratoPdf } from '../utils/pdf'
 import type { Contrato, StatusContrato, Template, VersaoContrato } from '../types'
 
@@ -175,6 +176,7 @@ export function GerenciadorArquivos() {
 
         {templateEditando && (
           <NovoTemplateForm
+            key={templateEditando.id}
             templateExistente={templateEditando}
             onConcluido={() => {
               setTemplateEditando(null)
@@ -362,14 +364,17 @@ function NovoTemplateForm({
   const { usuario } = useAuth()
   const [nome, setNome] = useState(templateExistente?.nome ?? '')
   const [descricao, setDescricao] = useState(templateExistente?.descricao ?? '')
-  const [conteudo, setConteudo] = useState(templateExistente?.conteudo ?? '')
+  const conteudoOriginal = templateExistente?.conteudo ?? ''
+  const [conteudo, setConteudo] = useState(
+    conteudoOriginal && !pareceHtml(conteudoOriginal) ? converterMarkupAntigoParaHtml(conteudoOriginal) : conteudoOriginal
+  )
   const [ativo, setAtivo] = useState(templateExistente?.ativo ?? true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [descricaoIa, setDescricaoIa] = useState('')
   const [gerandoIa, setGerandoIa] = useState(false)
   const [erroIa, setErroIa] = useState<string | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<TemplateEditorHandle>(null)
 
   async function gerarComIa() {
     if (!descricaoIa.trim()) return
@@ -377,7 +382,9 @@ function NovoTemplateForm({
     setErroIa(null)
     try {
       const resultado = await templatesApi.gerarComIa(descricaoIa.trim())
-      setConteudo(resultado.conteudo)
+      const html = converterMarkupAntigoParaHtml(resultado.conteudo)
+      setConteudo(html)
+      editorRef.current?.setContent(html)
       if (!nome.trim()) setNome(resultado.nome)
     } catch (e) {
       const mensagem =
@@ -389,83 +396,13 @@ function NovoTemplateForm({
     }
   }
 
-  function aplicarFormatacao(
-    tipo:
-      | 'negrito'
-      | 'italico'
-      | 'sublinhado'
-      | 'lista'
-      | 'titulo'
-      | 'alinhar-esquerda'
-      | 'alinhar-centro'
-      | 'alinhar-direita'
-      | 'justificar'
-  ) {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    let inicio = textarea.selectionStart
-    let fim = textarea.selectionEnd
-
-    // Lista/titulo/alinhamento agem sobre a linha inteira: se nada estiver selecionado,
-    // expande automaticamente para a linha onde o cursor esta.
-    const OPERACOES_DE_LINHA = ['lista', 'titulo', 'alinhar-esquerda', 'alinhar-centro', 'alinhar-direita', 'justificar']
-    if (OPERACOES_DE_LINHA.includes(tipo) && inicio === fim) {
-      inicio = conteudo.lastIndexOf('\n', inicio - 1) + 1
-      const proximaQuebra = conteudo.indexOf('\n', fim)
-      fim = proximaQuebra === -1 ? conteudo.length : proximaQuebra
-    }
-
-    const selecionado = conteudo.slice(inicio, fim) || 'texto'
-
-    let novoTrecho = selecionado
-    if (tipo === 'negrito') novoTrecho = `**${selecionado}**`
-    else if (tipo === 'italico') novoTrecho = `*${selecionado}*`
-    else if (tipo === 'sublinhado') novoTrecho = `__${selecionado}__`
-    else if (tipo === 'lista') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => (linha.startsWith('- ') ? linha : `- ${linha}`))
-        .join('\n')
-    } else if (tipo === 'titulo') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => (linha.startsWith('# ') ? linha : `# ${linha}`))
-        .join('\n')
-    } else if (tipo === 'alinhar-esquerda') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => definirAlinhamentoLinha(linha, null))
-        .join('\n')
-    } else if (tipo === 'alinhar-centro') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => definirAlinhamentoLinha(linha, 'centro'))
-        .join('\n')
-    } else if (tipo === 'alinhar-direita') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => definirAlinhamentoLinha(linha, 'direita'))
-        .join('\n')
-    } else if (tipo === 'justificar') {
-      novoTrecho = selecionado
-        .split('\n')
-        .map((linha) => definirAlinhamentoLinha(linha, 'justificado'))
-        .join('\n')
-    }
-
-    const novoConteudo = conteudo.slice(0, inicio) + novoTrecho + conteudo.slice(fim)
-    setConteudo(novoConteudo)
-
-    requestAnimationFrame(() => {
-      textarea.focus()
-      const novaPosicao = inicio + novoTrecho.length
-      textarea.setSelectionRange(novaPosicao, novaPosicao)
-    })
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!usuario) return
+    if (!conteudo || conteudo === '<p></p>') {
+      setErro('Escreva o conteúdo do template.')
+      return
+    }
     setEnviando(true)
     setErro(null)
     try {
@@ -547,67 +484,9 @@ function NovoTemplateForm({
       </div>
       <div className="field">
         <label>Conteúdo do template</label>
-        <div className="format-toolbar">
-          <button type="button" className="format-btn" title="Negrito" onClick={() => aplicarFormatacao('negrito')}>
-            <strong>B</strong>
-          </button>
-          <button type="button" className="format-btn" title="Itálico" onClick={() => aplicarFormatacao('italico')}>
-            <em>I</em>
-          </button>
-          <button
-            type="button"
-            className="format-btn"
-            title="Sublinhado"
-            onClick={() => aplicarFormatacao('sublinhado')}
-          >
-            <u>S</u>
-          </button>
-          <button type="button" className="format-btn" title="Lista com marcadores" onClick={() => aplicarFormatacao('lista')}>
-            • Lista
-          </button>
-          <button type="button" className="format-btn" title="Título" onClick={() => aplicarFormatacao('titulo')}>
-            # Título
-          </button>
-          <span className="format-toolbar-separador" />
-          <button
-            type="button"
-            className="format-btn"
-            title="Alinhar à esquerda"
-            onClick={() => aplicarFormatacao('alinhar-esquerda')}
-          >
-            ⯇ Esquerda
-          </button>
-          <button
-            type="button"
-            className="format-btn"
-            title="Centralizar"
-            onClick={() => aplicarFormatacao('alinhar-centro')}
-          >
-            ⯃ Centro
-          </button>
-          <button
-            type="button"
-            className="format-btn"
-            title="Alinhar à direita"
-            onClick={() => aplicarFormatacao('alinhar-direita')}
-          >
-            ⯈ Direita
-          </button>
-          <button type="button" className="format-btn" title="Justificar" onClick={() => aplicarFormatacao('justificar')}>
-            ☰ Justificar
-          </button>
-        </div>
-        <textarea
-          ref={textareaRef}
-          value={conteudo}
-          onChange={(e) => setConteudo(e.target.value)}
-          placeholder="Use {{variavel}} para os campos que serão preenchidos na geração do contrato."
-          rows={8}
-          required
-        />
+        <TemplateEditor ref={editorRef} conteudoInicial={conteudo} onChange={setConteudo} />
         <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
-          Selecione um trecho do texto (ou apenas posicione o cursor na linha) e clique num botão acima para
-          formatar ou alinhar o parágrafo.
+          Use <code>{'{{variavel}}'}</code> para os campos que serão preenchidos na geração do contrato.
         </div>
       </div>
       {templateExistente && (

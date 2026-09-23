@@ -9,7 +9,7 @@ export type Alinhamento = 'centro' | 'direita' | 'justificado'
 
 const ALINHAMENTO_REGEX = /^\[(centro|direita|justificado)\]\s?/
 
-const ALINHAMENTO_CSS: Record<Alinhamento, CSSProperties['textAlign']> = {
+export const ALINHAMENTO_CSS: Record<Alinhamento, CSSProperties['textAlign']> = {
   centro: 'center',
   direita: 'right',
   justificado: 'justify'
@@ -107,4 +107,91 @@ export function renderizarConteudoFormatado(conteudo: string, valores?: Record<s
   fecharLista('lista-final')
 
   return blocos
+}
+
+// ---------------------------------------------------------------------------
+// Conteudo em HTML (editor Tiptap) - novo formato usado por templates criados/
+// editados a partir de agora. O formato antigo acima (**negrito**, "# titulo"...)
+// continua sendo lido normalmente (templates/contratos ja existentes), so nao e
+// mais o formato gravado por um template novo.
+// ---------------------------------------------------------------------------
+
+/** Heuristica simples: conteudo em HTML sempre começa com uma tag de bloco (o Tiptap sempre envolve tudo em ao menos um `<p>`). */
+export function pareceHtml(conteudo: string): boolean {
+  return /^\s*<[a-z][\s\S]*>/i.test(conteudo)
+}
+
+function escapeHtml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function inlineParaHtml(texto: string): string {
+  return escapeHtml(texto)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+}
+
+/** Converte um template/contrato no formato antigo (marcacoes de texto) para HTML, pra poder ser aberto no editor Tiptap. */
+export function converterMarkupAntigoParaHtml(conteudo: string): string {
+  const partesHtml: string[] = []
+  let listaAtual: string[] = []
+
+  function fecharLista() {
+    if (listaAtual.length === 0) return
+    partesHtml.push(`<ul>${listaAtual.map((item) => `<li>${item}</li>`).join('')}</ul>`)
+    listaAtual = []
+  }
+
+  conteudo.split('\n').forEach((linhaOriginal) => {
+    const { texto: linha, alinhamento } = interpretarAlinhamento(linhaOriginal)
+    const estilo = alinhamento ? ` style="text-align: ${ALINHAMENTO_CSS[alinhamento]}"` : ''
+
+    if (linha.startsWith('- ')) {
+      listaAtual.push(inlineParaHtml(linha.slice(2)))
+      return
+    }
+    fecharLista()
+
+    if (linha.startsWith('# ')) {
+      partesHtml.push(`<h1${estilo}>${inlineParaHtml(linha.slice(2))}</h1>`)
+    } else {
+      partesHtml.push(`<p${estilo}>${inlineParaHtml(linha)}</p>`)
+    }
+  })
+  fecharLista()
+
+  return partesHtml.join('') || '<p></p>'
+}
+
+/** Substitui {{variavel}} por span preenchido/vazio direto na string HTML (os tokens sempre ficam em um unico no de texto). */
+function aplicarValoresNoHtml(html: string, valores?: Record<string, string>): string {
+  if (!valores) return html
+  return html.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, nomeVar: string) => {
+    const valor = valores[nomeVar]
+    return valor
+      ? `<span class="placeholder-filled">${escapeHtml(valor)}</span>`
+      : `<span class="placeholder-empty">${match}</span>`
+  })
+}
+
+/**
+ * Renderiza o conteudo de um template/contrato, aceitando tanto HTML (formato novo, vindo
+ * do editor Tiptap) quanto o formato antigo de marcacoes de texto - e o unico ponto que as
+ * telas de contrato/geracao devem usar pra exibir `conteudo`/`versoes_contrato.conteudo`.
+ */
+export function ConteudoRenderizado({
+  conteudo,
+  valores
+}: {
+  conteudo: string
+  valores?: Record<string, string>
+}) {
+  if (pareceHtml(conteudo)) {
+    return <div dangerouslySetInnerHTML={{ __html: aplicarValoresNoHtml(conteudo, valores) }} />
+  }
+  return <>{renderizarConteudoFormatado(conteudo, valores)}</>
 }
