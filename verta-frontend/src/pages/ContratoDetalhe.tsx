@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { contratosApi } from '../api/contratos'
 import { contratoUsuariosApi } from '../api/contratoUsuarios'
+import { extrairVariaveis } from '../api/templates'
 import { versoesContratoApi } from '../api/versoesContrato'
 import { usuariosApi } from '../api/usuarios'
 import { StatusBadge } from '../components/StatusBadge'
@@ -40,6 +41,8 @@ export function ContratoDetalhe() {
   const [salvando, setSalvando] = useState(false)
   const [mudandoStatus, setMudandoStatus] = useState(false)
   const [mostrarCompartilhar, setMostrarCompartilhar] = useState(false)
+  const [filtroVariavel, setFiltroVariavel] = useState('')
+  const textareaEdicaoRef = useRef<HTMLTextAreaElement>(null)
 
   function carregarTudo() {
     if (!usuario || !contratoId) return
@@ -90,7 +93,31 @@ export function ContratoDetalhe() {
 
   function iniciarEdicao() {
     setConteudoEditado(ultimaVersao?.conteudo ?? '')
+    setFiltroVariavel('')
     setEditando(true)
+  }
+
+  // {{variaveis}} que ainda restam no conteudo (normalmente alguma que ficou em branco na
+  // geracao) - some da lista assim que a pessoa substitui pelo valor de verdade no texto.
+  const variaveisRestantes = useMemo(() => extrairVariaveis(conteudoEditado), [conteudoEditado])
+  const variaveisFiltradas = useMemo(() => {
+    const termo = filtroVariavel.trim().toLowerCase()
+    if (!termo) return variaveisRestantes
+    return variaveisRestantes.filter((v) => v.toLowerCase().includes(termo))
+  }, [variaveisRestantes, filtroVariavel])
+
+  /** Seleciona a proxima ocorrencia de {{nomeVar}} no textarea, ciclando ao chegar no final. */
+  function irParaVariavel(nomeVar: string) {
+    const textarea = textareaEdicaoRef.current
+    if (!textarea) return
+    const token = `{{${nomeVar}}}`
+    const posicaoAtual = textarea.selectionEnd ?? 0
+    let indice = conteudoEditado.indexOf(token, posicaoAtual)
+    if (indice === -1) indice = conteudoEditado.indexOf(token)
+    if (indice === -1) return
+
+    textarea.focus()
+    textarea.setSelectionRange(indice, indice + token.length)
   }
 
   async function salvarEdicao() {
@@ -191,8 +218,33 @@ export function ContratoDetalhe() {
 
           {editando && (
             <>
+              {variaveisRestantes.length > 0 && (
+                <div className="field" style={{ marginTop: 12 }}>
+                  <label>Buscar variável ({variaveisRestantes.length} ainda no texto)</label>
+                  <input
+                    value={filtroVariavel}
+                    onChange={(e) => setFiltroVariavel(e.target.value)}
+                    placeholder="Ex: cpf, valor, data..."
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {variaveisFiltradas.map((v) => (
+                      <button
+                        type="button"
+                        key={v}
+                        className="badge badge-em_revisao"
+                        style={{ cursor: 'pointer', border: 'none' }}
+                        onClick={() => irParaVariavel(v)}
+                        title="Clique para ir até essa variável no texto (clique de novo para a próxima ocorrência)"
+                      >
+                        {`{{${v}}}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="field" style={{ marginTop: 12 }}>
                 <textarea
+                  ref={textareaEdicaoRef}
                   value={conteudoEditado}
                   onChange={(e) => setConteudoEditado(e.target.value)}
                   rows={18}

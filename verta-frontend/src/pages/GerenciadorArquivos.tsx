@@ -435,79 +435,82 @@ function NovoTemplateForm({
   }
 
   return (
-    <form className="card" style={{ padding: 18, marginBottom: 18 }} onSubmit={handleSubmit}>
-      {erro && <div className="status-message error">{erro}</div>}
-      <div className="field">
-        <label>Nome do template</label>
-        <input
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Contrato de Prestação de Serviços"
-          required
-        />
+    <div className="contract-layout" style={{ marginBottom: 18 }}>
+      <div className="card">
+        <div className="form-panel-hint" style={{ padding: '16px 16px 0' }}>
+          Use <code>{'{{variavel}}'}</code> para os campos que serão preenchidos na geração do contrato.
+        </div>
+        <div style={{ padding: 16 }}>
+          <TemplateEditor ref={editorRef} conteudoInicial={conteudo} onChange={setConteudo} />
+        </div>
       </div>
-      <div className="field">
-        <label>Descrição</label>
-        <input
-          value={descricao ?? ''}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Opcional"
-        />
-      </div>
-      <div className="field">
-        <label>Gerar conteúdo com IA</label>
-        {erroIa && <div className="status-message error">{erroIa}</div>}
-        <div style={{ display: 'flex', gap: 10 }}>
+
+      <form className="card form-panel" onSubmit={handleSubmit}>
+        <div className="form-panel-title">{templateExistente ? 'Editar template' : 'Novo template'}</div>
+
+        {erro && <div className="status-message error">{erro}</div>}
+
+        <div className="field">
+          <label>Nome do template</label>
           <input
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Contrato de Prestação de Serviços"
+            required
+          />
+        </div>
+        <div className="field">
+          <label>Descrição</label>
+          <input
+            value={descricao ?? ''}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder="Opcional"
+          />
+        </div>
+        <div className="field">
+          <label>Gerar conteúdo com IA</label>
+          {erroIa && <div className="status-message error">{erroIa}</div>}
+          <textarea
             value={descricaoIa}
             onChange={(e) => setDescricaoIa(e.target.value)}
             placeholder="Descreva o contrato, ex: prestação de serviços de consultoria de TI"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                gerarComIa()
-              }
-            }}
+            rows={2}
           />
           <button
             type="button"
             className="btn btn-secondary"
             onClick={gerarComIa}
             disabled={gerandoIa || !descricaoIa.trim()}
+            style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
           >
             {gerandoIa ? 'Gerando...' : '✨ Gerar com IA'}
           </button>
+          <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
+            A IA preenche o documento ao lado (e o nome, se estiver vazio). Revise antes de salvar.
+          </div>
         </div>
-        <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
-          A IA preenche o conteúdo abaixo (e o nome, se estiver vazio). Revise antes de salvar.
-        </div>
-      </div>
-      <div className="field">
-        <label>Conteúdo do template</label>
-        <TemplateEditor ref={editorRef} conteudoInicial={conteudo} onChange={setConteudo} />
-        <div className="form-panel-hint" style={{ marginTop: 6, marginBottom: 0 }}>
-          Use <code>{'{{variavel}}'}</code> para os campos que serão preenchidos na geração do contrato.
-        </div>
-      </div>
-      {templateExistente && (
-        <div className="field">
-          <label>
-            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Ativo (aparece na
-            geração de contrato)
-          </label>
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 10 }}>
+
         {templateExistente && (
-          <button type="button" className="btn btn-secondary" onClick={onConcluido}>
-            Cancelar
-          </button>
+          <div className="field">
+            <label>
+              <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Ativo (aparece na
+              geração de contrato)
+            </label>
+          </div>
         )}
-        <button type="submit" className="btn btn-primary" disabled={enviando}>
-          {enviando ? 'Salvando...' : templateExistente ? 'Salvar alterações' : 'Cadastrar template'}
-        </button>
-      </div>
-    </form>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          {templateExistente && (
+            <button type="button" className="btn btn-secondary" onClick={onConcluido}>
+              Cancelar
+            </button>
+          )}
+          <button type="submit" className="btn btn-primary" disabled={enviando}>
+            {enviando ? 'Salvando...' : templateExistente ? 'Salvar alterações' : 'Cadastrar template'}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }
 

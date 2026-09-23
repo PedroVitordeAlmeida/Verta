@@ -38,6 +38,7 @@ export function GeracaoContrato() {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
+  const [filtroVariavel, setFiltroVariavel] = useState('')
 
   useEffect(() => {
     if (!usuario) return
@@ -67,12 +68,28 @@ export function GeracaoContrato() {
     return Array.from(mapa.entries())
   }, [variaveis])
 
+  // Filtra por nome da variavel ({{cpf_contratante}}) ou pelo rotulo exibido (CPF contratante),
+  // pra achar rapido o campo certo quando o template tem muitas variaveis.
+  const gruposFiltrados = useMemo(() => {
+    const termo = filtroVariavel.trim().toLowerCase()
+    if (!termo) return grupos
+    return grupos
+      .map(([grupo, campos]): [string, string[]] => [
+        grupo,
+        campos.filter(
+          (nomeVar) => nomeVar.toLowerCase().includes(termo) || rotuloDoCampo(nomeVar).toLowerCase().includes(termo)
+        )
+      ])
+      .filter(([, campos]) => campos.length > 0)
+  }, [grupos, filtroVariavel])
+
   function selecionarTemplate(template: Template) {
     setTemplateSelecionado(template)
     setValores({})
     setTitulo(template.nome)
     setSucesso(null)
     setErro(null)
+    setFiltroVariavel('')
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -147,7 +164,20 @@ export function GeracaoContrato() {
           <input value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
         </div>
 
-        {grupos.map(([grupo, campos]) => (
+        <div className="field">
+          <label>Buscar variável</label>
+          <input
+            value={filtroVariavel}
+            onChange={(e) => setFiltroVariavel(e.target.value)}
+            placeholder="Ex: cpf, valor, data..."
+          />
+        </div>
+
+        {gruposFiltrados.length === 0 && (
+          <div className="form-panel-hint">Nenhuma variável encontrada para "{filtroVariavel}".</div>
+        )}
+
+        {gruposFiltrados.map(([grupo, campos]) => (
           <div key={grupo}>
             <div className="section-title">{grupo.toUpperCase()}</div>
             {campos.map((nomeVar) => (
